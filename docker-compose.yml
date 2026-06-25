@@ -1,11 +1,41 @@
 services:
   node:
-    image: node:26.2.0-alpine3.23
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: consign-art-project-node
     user: node
     tty: true
     working_dir: /home/node/app
     volumes:
       - .:/home/node/app
+      - node_modules:/home/node/app/node_modules
     ports:
       - "3000:3000"
-    command: sh -c "npm install && npm run start:dev"
+    env_file:
+      - .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: npm run start:dev
+
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_DATABASE}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME} -d ${DB_DATABASE}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  node_modules:
+  postgres_data:
