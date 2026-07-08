@@ -1,0 +1,208 @@
+import { Test, TestingModule } from '@nestjs/testing';
+import { ConflictException, ForbiddenException } from '@nestjs/common';
+import { getRepositoryToken } from '@nestjs/typeorm';
+import { ExhibitionsService } from './exhibitions.service';
+import { Exhibition } from './entities/exhibition.entity';
+import { ExhibitionArtwork } from './entities/exhibition-artwork.entity';
+import { ExhibitionStatus } from './entities/enums/exhibition-status.enum';
+import { ArtworkStatus } from '../artworks/enums/artwork-status.enum';
+import { ArtworksService } from '../artworks/artworks.service';
+import { UsersService } from '../users/users.service';
+import { Role } from '../users/enums/role.enum';
+import { BusinessRuleViolationException } from '../common/exceptions/business-rule-violation.exception';
+
+const mockGalleryUser = {
+  id: 'gallery-1',
+  email: 'g@test.com',
+  role: Role.GALLERY,
+};
+
+const mockExhibitionsRepository = {
+  create: jest.fn((data: any) => ({ ...data, id: 'exhibition-1' })),
+  save: jest.fn((data: any) => Promise.resolve(data)),
+  find: jest.fn(),
+  findOne: jest.fn(),
+  remove: jest.fn(),
+};
+
+const mockExhibitionArtworkRepository = {
+  create: jest.fn((data: any) => ({ ...data, id: 'ea-1' })),
+  save: jest.fn((data: any) => Promise.resolve(data)),
+  findOne: jest.fn(),
+  remove: jest.fn(),
+};
+
+const mockArtworksService = { findOne: jest.fn(), changeStatus: jest.fn() };
+const mockUsersService = { findOne: jest.fn() };
+
+describe('ExhibitionsService', () => {
+  let service: ExhibitionsService;
+
+  beforeEach(async () => {
+    jest.clearAllMocks();
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        ExhibitionsService,
+        {
+          provide: getRepositoryToken(Exhibition),
+          useValue: mockExhibitionsRepository,
+        },
+        {
+          provide: getRepositoryToken(ExhibitionArtwork),
+          useValue: mockExhibitionArtworkRepository,
+        },
+        { provide: ArtworksService, useValue: mockArtworksService },
+        { provide: UsersService, useValue: mockUsersService },
+      ],
+    }).compile();
+
+    service = module.get<ExhibitionsService>(ExhibitionsService);
+  });
+
+  describe('addArtwork', () => {
+    const exhibition = {
+      id: 'exhibition-1',
+      gallery: { id: 'gallery-1' },
+      status: ExhibitionStatus.UPCOMING,
+    };
+    const artwork = {
+      id: 'artwork-1',
+      gallery: { id: 'gallery-1' },
+      status: ArtworkStatus.AVAILABLE,
+    };
+
+    it('throws ConflictException when the artwork is already in the exhibition', async () => {
+      mockExhibitionsRepository.findOne.mockResolvedValue(exhibition);
+      mockArtworksService.findOne.mockResolvedValue(artwork);
+      mockExhibitionArtworkRepository.findOne.mockResolvedValue({
+        id: 'existing',
+      });
+
+      await expect(
+        service.addArtwork(
+          'exhibition-1',
+          { artworkId: 'artwork-1' } as any,
+          mockGalleryUser as any,
+        ),
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it('throws BusinessRuleViolationException when the artwork is not available', async () => {
+      mockExhibitionsRepository.findOne.mockResolvedValue(exhibition);
+      mockArtworksService.findOne.mockResolvedValue({
+        ...artwork,
+        status: ArtworkStatus.SOLD,
+      });
+      mockExhibitionArtworkRepository.findOne.mockResolvedValue(null);
+
+      await expect(
+        service.addArtwork(
+          'exhibition-1',
+          { artworkId: 'artwork-1' } as any,
+          mockGalleryUser as any,
+        ),
+      ).rejects.toThrow(BusinessRuleViolationException);
+    });
+
+    it('adds the artwork and moves it to on_loan when the exhibition is ongoing', async () => {
+      const ongoingExhibition = {
+        ...exhibition,
+        status: ExhibitionStatus.ONGOING,
+      };
+      mockExhibitionsRepository.findOne.mockResolvedValue(ongoingExhibition);
+      mockArtworksService.findOne.mockResolvedValue(artwork);
+      mockExhibitionArtworkRepository.findOne.mockResolvedValue(null);
+
+      await service.addArtwork(
+        'exhibition-1',
+        { artworkId: 'artwork-1' },
+        mockGalleryUser,
+      );
+
+      expect(mockArtworksService.changeStatus).toHaveBeenCalledWith(
+        'artwork-1',
+        ArtworkStatus.ON_LOAN,
+        mockGalleryUser,
+        expect.any(String),
+      );
+    });
+  });
+
+  describe('updateStatus', () => {
+    it('throws BusinessRuleViolationException when starting an exhibition with zero artworks', async () => {
+      mockExhibitionsRepository.findOne.mockResolvedValue({
+        id: 'exhibition-1',
+        gallery: { id: 'gallery-1' },
+        exhibitionArtworks: [],
+      });
+
+      await expect(
+        service.updateStatus(
+          'exhibition-1',
+          ExhibitionStatus.ONGOING,
+          mockGalleryUser as any,
+        ),
+      ).rejects.toThrow(BusinessRuleViolationException);
+    });
+
+    it('moves available artworks to on_loan when the exhibition starts', async () => {
+      mockExhibitionsRepository.findOne.mockResolvedValue({
+        id: 'exhibition-1',
+        gallery: { id: 'gallery-1' },
+        exhibitionArtworks: [
+          { artwork: { id: 'artwork-1', status: ArtworkStatus.AVAILABLE } },
+        ],
+      });
+
+      await service.updateStatus(
+        'exhibition-1',
+        ExhibitionStatus.ONGOING,
+        mockGalleryUser,
+      );
+
+      expect(mockArtworksService.changeStatus).toHaveBeenCalledWith(
+        'artwork-1',
+        ArtworkStatus.ON_LOAN,
+        mockGalleryUser,
+        expect.any(String),
+      );
+    });
+
+    it('returns on_loan artworks to available when the exhibition closes', async () => {
+      mockExhibitionsRepository.findOne.mockResolvedValue({
+        id: 'exhibition-1',
+        gallery: { id: 'gallery-1' },
+        exhibitionArtworks: [
+          { artwork: { id: 'artwork-1', status: ArtworkStatus.ON_LOAN } },
+        ],
+      });
+
+      await service.updateStatus(
+        'exhibition-1',
+        ExhibitionStatus.CLOSED,
+        mockGalleryUser,
+      );
+
+      expect(mockArtworksService.changeStatus).toHaveBeenCalledWith(
+        'artwork-1',
+        ArtworkStatus.AVAILABLE,
+        mockGalleryUser,
+        expect.any(String),
+      );
+    });
+  });
+
+  describe('findOne', () => {
+    it('throws ForbiddenException when the caller does not own the exhibition', async () => {
+      mockExhibitionsRepository.findOne.mockResolvedValue({
+        id: 'exhibition-1',
+        gallery: { id: 'gallery-2' },
+      });
+
+      await expect(
+        service.findOne('exhibition-1', mockGalleryUser as any),
+      ).rejects.toThrow(ForbiddenException);
+    });
+  });
+});

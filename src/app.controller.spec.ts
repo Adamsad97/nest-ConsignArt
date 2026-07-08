@@ -15,8 +15,12 @@ describe('AppController', () => {
   });
 
   describe('root', () => {
-    it('should return "Hello World!"', () => {
-      expect(appController.getHello()).toBe('Hello World!');
+    it('returns basic API information', () => {
+      expect(appController.getApiInfo()).toEqual({
+        name: 'ConsignArt API',
+        version: '1.0',
+        docs: '/api/docs',
+      });
     });
   });
 });

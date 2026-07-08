@@ -1,29 +1,194 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication } from '@nestjs/common';
+import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from './../src/app.module';
+import { GlobalExceptionFilter } from '../src/common/filters/global-exception.filter';
+import { BusinessRuleViolationFilter } from '../src/common/filters/business-rule-violation.filter';
+import { ResponseInterceptor } from '../src/common/interceptors/response.interceptor';
+import { LoggingInterceptor } from '../src/common/interceptors/logging.interceptor';
 
-describe('AppController (e2e)', () => {
+describe('ConsignArt API (e2e)', () => {
   let app: INestApplication<App>;
 
-  beforeEach(async () => {
+  beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
 
     app = moduleFixture.createNestApplication();
+    app.setGlobalPrefix('api/v1');
+    app.useGlobalFilters(
+      new GlobalExceptionFilter(),
+      new BusinessRuleViolationFilter(),
+    );
+    app.useGlobalInterceptors(
+      new LoggingInterceptor(),
+      new ResponseInterceptor(),
+    );
+    app.useGlobalPipes(
+      new ValidationPipe({
+        whitelist: true,
+        forbidNonWhitelisted: true,
+        transform: true,
+      }),
+    );
     await app.init();
   });
 
-  it('/ (GET)', () => {
-    return request(app.getHttpServer())
-      .get('/')
-      .expect(200)
-      .expect('Hello World!');
+  afterAll(async () => {
+    await app.close();
   });
 
-  afterEach(async () => {
-    await app.close();
+  it('GET /api/v1 returns basic API information', async () => {
+    const res = await request(app.getHttpServer()).get('/api/v1').expect(200);
+    expect(res.body.data).toEqual({
+      name: 'ConsignArt API',
+      version: '1.0',
+      docs: '/api/docs',
+    });
+  });
+
+  it('rejects a protected route with no token', async () => {
+    await request(app.getHttpServer()).get('/api/v1/users').expect(401);
+  });
+
+  describe('gallery onboarding and artwork consignment flow', () => {
+    const suffix = Date.now();
+    const galleryEmail = `gallery-${suffix}@test.com`;
+    const adminEmail = `admin-${suffix}@test.com`;
+    const password = 'Password123!';
+
+    let adminToken: string;
+    let galleryToken: string;
+    let galleryUserId: string;
+    let artistId: string;
+
+    it('registers a gallery account as inactive', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/api/v1/auth/register')
+        .send({
+          email: galleryEmail,
+          password,
+          firstName: 'Galerie',
+          lastName: 'Moderne',
+          role: 'gallery',
+        })
+        .expect(201);
+
+      galleryUserId = res.body.data.id;
+      expect(res.body.data.isActive).toBe(false);
+    });
+
+    it('refuses login for the inactive gallery', async () => {
+      await request(app.getHttpServer())
+        .post('/api/v1/auth/login')
+        .send({ email: galleryEmail, password })
+        .expect(401);
+    });
+
+    it('registers and logs in an admin account (active immediately)', async () => {
+      await request(app.getHttpServer())
+        .post('/api/v1/auth/register')
+        .send({
+          email: adminEmail,
+          password,
+          firstName: 'Admin',
+          lastName: 'ConsignArt',
+          role: 'admin',
+        })
+        .expect(201);
+
+      const res = await request(app.getHttpServer())
+        .post('/api/v1/auth/login')
+        .send({ email: adminEmail, password })
+        .expect(200);
+
+      adminToken = res.body.data.access_token;
+    });
+
+    it('lets the admin activate the gallery, which can then log in', async () => {
+      await request(app.getHttpServer())
+        .patch(`/api/v1/users/${galleryUserId}/activate`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200);
+
+      const res = await request(app.getHttpServer())
+        .post('/api/v1/auth/login')
+        .send({ email: galleryEmail, password })
+        .expect(200);
+
+      galleryToken = res.body.data.access_token;
+    });
+
+    it('lets the gallery register an artist', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/api/v1/artists')
+        .set('Authorization', `Bearer ${galleryToken}`)
+        .send({ firstName: 'Frida', lastName: 'Kahlo', nationality: 'Mexican' })
+        .expect(201);
+
+      artistId = res.body.data.id;
+    });
+
+    it('creates an artwork and normalizes price/reservePrice to 2 decimals', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/api/v1/artworks')
+        .set('Authorization', `Bearer ${galleryToken}`)
+        .send({
+          title: 'Self-Portrait',
+          artistId,
+          price: 1500.256,
+          reservePrice: 1000.994,
+        })
+        .expect(201);
+
+      expect(res.body.data.price).toBe(1500.26);
+      expect(res.body.data.reservePrice).toBe(1000.99);
+    });
+
+    it('lists the new artwork in the public catalog', async () => {
+      const res = await request(app.getHttpServer())
+        .get('/api/v1/artworks')
+        .expect(200);
+      expect(Array.isArray(res.body.data)).toBe(true);
+      expect(
+        res.body.data.some(
+          (a: { title: string }) => a.title === 'Self-Portrait',
+        ),
+      ).toBe(true);
+    });
+
+    it('refuses another gallery from updating the artist it does not own', async () => {
+      const otherGalleryEmail = `gallery2-${suffix}@test.com`;
+      const registerRes = await request(app.getHttpServer())
+        .post('/api/v1/auth/register')
+        .send({
+          email: otherGalleryEmail,
+          password,
+          firstName: 'Autre',
+          lastName: 'Galerie',
+          role: 'gallery',
+        })
+        .expect(201);
+      const otherGalleryUserId = registerRes.body.data.id;
+
+      await request(app.getHttpServer())
+        .patch(`/api/v1/users/${otherGalleryUserId}/activate`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200);
+
+      const loginRes = await request(app.getHttpServer())
+        .post('/api/v1/auth/login')
+        .send({ email: otherGalleryEmail, password })
+        .expect(200);
+      const otherToken = loginRes.body.data.access_token;
+
+      await request(app.getHttpServer())
+        .patch(`/api/v1/artists/${artistId}`)
+        .set('Authorization', `Bearer ${otherToken}`)
+        .send({ bio: 'Attempted takeover' })
+        .expect(403);
+    });
   });
 });

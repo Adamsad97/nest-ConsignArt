@@ -4,6 +4,14 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import * as Joi from 'joi';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { UsersModule } from './users/users.module';
+import { AuthModule } from './auth/auth.module';
+import { ArtworksModule } from './artworks/artworks.module';
+import { ArtistsModule } from './artists/artists.module';
+import { ExhibitionsModule } from './exhibitions/exhibitions.module';
+import { LoansModule } from './loans/loans.module';
+import { SalesModule } from './sales/sales.module';
+import { ReportsModule } from './reports/reports.module';
 
 @Module({
   imports: [
@@ -11,7 +19,9 @@ import { AppService } from './app.service';
       isGlobal: true,
       validationSchema: Joi.object({
         PORT: Joi.number().default(3000),
-        NODE_ENV: Joi.string().valid('development', 'production', 'test').default('development'),
+        NODE_ENV: Joi.string()
+          .valid('development', 'production', 'test')
+          .default('development'),
         DB_HOST: Joi.string().required(),
         DB_PORT: Joi.number().default(5432),
         DB_USERNAME: Joi.string().required(),
@@ -19,6 +29,9 @@ import { AppService } from './app.service';
         DB_DATABASE: Joi.string().required(),
         JWT_SECRET: Joi.string().required(),
         JWT_EXPIRATION: Joi.string().default('3600s'),
+        JWT_ACCESS_EXPIRATION: Joi.string().default('15m'),
+        JWT_REFRESH_SECRET: Joi.string().required(),
+        JWT_REFRESH_EXPIRATION: Joi.string().default('7d'),
       }),
     }),
     TypeOrmModule.forRootAsync({
@@ -35,6 +48,14 @@ import { AppService } from './app.service';
         synchronize: config.get<string>('NODE_ENV') === 'development',
       }),
     }),
+    UsersModule,
+    AuthModule,
+    ArtistsModule,
+    ArtworksModule,
+    ExhibitionsModule,
+    LoansModule,
+    SalesModule,
+    ReportsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

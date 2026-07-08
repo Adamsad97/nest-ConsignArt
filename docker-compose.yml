@@ -1,41 +1,43 @@
 services:
-  node:
+  api:
     build:
       context: .
       dockerfile: Dockerfile
-    image: consign-art-project-node
-    user: node
-    tty: true
-    working_dir: /home/node/app
-    volumes:
-      - .:/home/node/app
-      - node_modules:/home/node/app/node_modules
     ports:
-      - "3000:3000"
+      - '3000:3000'
     env_file:
       - .env
     depends_on:
-      postgres:
+      db:
         condition: service_healthy
-    command: npm run start:dev
 
-  postgres:
-    image: postgres:17-alpine
+  db:
+    image: postgres:16-alpine
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${DB_USERNAME}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_DB: ${DB_DATABASE}
     ports:
-      - "5432:5432"
+      - '5434:5432'
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME} -d ${DB_DATABASE}"]
+      test: ['CMD-SHELL', 'pg_isready -U ${DB_USERNAME} -d ${DB_DATABASE}']
       interval: 5s
       timeout: 5s
       retries: 5
 
+  pgadmin:
+    image: dpage/pgadmin4
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@consignart.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - '5050:80'
+    depends_on:
+      - db
+
 volumes:
-  node_modules:
-  postgres_data:
+  pgdata:
