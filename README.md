@@ -1,44 +1,74 @@
-```bash
+# ConsignArt
 
-$ npm install
-```
+## Prerequisites
 
-## Compile and run the project
+- Docker and Docker Compose
 
-```bash
-# development
-$ npm run start
-
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
-```
-
-## Run tests
+## 1. Clone
 
 ```bash
-# unit tests
-$ npm run test
-
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
+git clone https://github.com/Adamsad97/nest-ConsignArt.git
+cd nest-ConsignArt
 ```
+
+## 2. Configure environment variables
 
 ```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+cp .env.example .env
 ```
 
-# nest-ConsignArt-
+Default values work out of the box with Docker Compose.
 
-## DOCKER
+## 3. Start the project
 
-docker compose up -d # en arrière-plan (detached)
-docker compose up --build # si tu as un Dockerfile
-docker compose logs -f # voir les logs en temps réel
-docker compose down # arrêter et supprimer les conteneurs
+```bash
+docker compose up --build
+```
+
+Starts all three services in one command:
+
+| Service      | URL                            |
+| ------------ | ------------------------------ |
+| API          | http://localhost:3000/api/v1   |
+| Swagger docs | http://localhost:3000/api/docs |
+| pgAdmin      | http://localhost:5050          |
+
+The database schema is created automatically on first boot (development mode).
+
+Other useful commands: `docker compose up -d` (background), `docker compose logs -f api`. See step 8 to stop and clean up.
+
+## 4. Database migrations (optional)
+
+Only needed to build the schema from migrations instead of the automatic dev sync (e.g. for a production-like setup).
+
+```bash
+npm run migration:run        # apply pending migrations
+npm run migration:generate   # generate a migration from entity changes
+npm run migration:revert     # roll back the last migration
+```
+
+## 5. Interact with the API
+
+All routes are prefixed with `/api/v1`. Explore and test every endpoint interactively via Swagger: **http://localhost:3000/api/docs**
+
+Typical flow: register a gallery (`POST /auth/register`) → an admin activates it (`PATCH /users/:id/activate`) → the gallery logs in (`POST /auth/login`), registers an artist (`POST /artists`) and consigns an artwork (`POST /artworks`) → a sale is recorded (`POST /sales`) → dashboards are available under `GET /reports/dashboard/*`.
+
+## 6. Inspect the data
+
+Open **pgAdmin** at http://localhost:5050 (`admin@consignart.com` / `admin`), add a server pointing to host `db`, port `5432`, using the credentials from `.env` — or connect any SQL client to `localhost:5434` directly.
+
+## 7. Run tests
+
+```bash
+npm test          # unit tests
+npm run test:e2e  # integration test (requires the db container running, see step 3)
+```
+
+## 8. Stop and clean up
+
+```bash
+docker compose down              # stop and remove containers (keeps images and data)
+docker compose down -v           # also delete the database volume (wipes all data)
+docker compose down --rmi all    # also delete the images built for this project
+docker compose down -v --rmi all # full cleanup: containers, volumes and images
+```
