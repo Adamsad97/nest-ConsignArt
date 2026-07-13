@@ -99,6 +99,46 @@ describe('ArtistsService', () => {
     });
   });
 
+  describe('activate', () => {
+    it('reactivates a previously deactivated artist', async () => {
+      const gallery = { id: 'g-1' };
+      mockRepo.findOne.mockResolvedValue({
+        ...mockArtist,
+        gallery,
+        isActive: false,
+      });
+
+      const galleryUser = {
+        id: 'g-1',
+        email: 'gallery@test.com',
+        role: Role.GALLERY,
+      };
+      const result = await service.activate('a-1', galleryUser);
+
+      expect(result.isActive).toBe(true);
+      expect(mockRepo.save).toHaveBeenCalledWith(
+        expect.objectContaining({ isActive: true }),
+      );
+    });
+
+    it('throws ForbiddenException when a different gallery tries to activate', async () => {
+      mockRepo.findOne.mockResolvedValue({
+        ...mockArtist,
+        gallery: { id: 'other-gallery' },
+        isActive: false,
+      });
+
+      const galleryUser = {
+        id: 'g-1',
+        email: 'gallery@test.com',
+        role: Role.GALLERY,
+      };
+      await expect(service.activate('a-1', galleryUser)).rejects.toThrow(
+        ForbiddenException,
+      );
+    });
+  });
+
   describe('remove', () => {
     it('soft-deletes by setting isActive to false', async () => {
       const gallery = { id: 'g-1' };

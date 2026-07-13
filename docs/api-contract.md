@@ -33,6 +33,7 @@ Legend: `public` = no token required · `auth` = any authenticated user · role 
 | GET    | `/artists/:id`          | gallery, admin, artist | 200     | 403 (not your gallery), 404      |
 | PATCH  | `/artists/:id`          | gallery, admin         | 200     | 403, 404                         |
 | PATCH  | `/artists/:id/transfer` | admin                  | 200     | 400 (target not a gallery), 404  |
+| PATCH  | `/artists/:id/activate` | gallery, admin         | 200     | 403, 404                         |
 | DELETE | `/artists/:id`          | gallery, admin         | 204     | soft delete (`isActive = false`) |
 
 ## Artworks

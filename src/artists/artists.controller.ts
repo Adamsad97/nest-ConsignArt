@@ -74,6 +74,13 @@ export class ArtistsController {
     return this.artistsService.transferGallery(id, galleryId, user);
   }
 
+  @Patch(':id/activate')
+  @Roles(Role.GALLERY, Role.ADMIN)
+  @ApiOperation({ summary: 'Reactivate a previously deactivated artist' })
+  activate(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.artistsService.activate(id, user);
+  }
+
   @Delete(':id')
   @Roles(Role.GALLERY, Role.ADMIN)
   @HttpCode(HttpStatus.NO_CONTENT)

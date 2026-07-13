@@ -121,6 +121,22 @@ export class ArtistsService {
     return this.artistsRepository.save(artist);
   }
 
+  async activate(id: string, currentUser: AuthenticatedUser): Promise<Artist> {
+    const artist = await this.findOne(id, currentUser);
+
+    if (
+      currentUser.role !== Role.ADMIN &&
+      artist.gallery.id !== currentUser.id
+    ) {
+      throw new ForbiddenException(
+        'You can only activate artists in your gallery',
+      );
+    }
+
+    artist.isActive = true;
+    return this.artistsRepository.save(artist);
+  }
+
   async remove(id: string, currentUser: AuthenticatedUser): Promise<void> {
     const artist = await this.findOne(id, currentUser);
 
