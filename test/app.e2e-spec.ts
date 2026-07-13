@@ -1,5 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication, ValidationPipe } from '@nestjs/common';
+import {
+  ClassSerializerInterceptor,
+  INestApplication,
+  ValidationPipe,
+} from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from './../src/app.module';
@@ -25,6 +30,7 @@ describe('ConsignArt API (e2e)', () => {
     app.useGlobalInterceptors(
       new LoggingInterceptor(),
       new ResponseInterceptor(),
+      new ClassSerializerInterceptor(app.get(Reflector)),
     );
     app.useGlobalPipes(
       new ValidationPipe({

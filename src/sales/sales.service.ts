@@ -61,11 +61,13 @@ export class SalesService {
     currentUser: AuthenticatedUser,
   ): Promise<Sale> {
     return this.dataSource.transaction(async (manager) => {
-      const artwork = await manager.findOne(Artwork, {
-        where: { id: dto.artworkId },
-        lock: { mode: 'pessimistic_write' },
-        relations: { gallery: true, artist: true },
-      });
+      const artwork = await manager
+        .createQueryBuilder(Artwork, 'artwork')
+        .innerJoinAndSelect('artwork.gallery', 'gallery')
+        .innerJoinAndSelect('artwork.artist', 'artist')
+        .where('artwork.id = :id', { id: dto.artworkId })
+        .setLock('pessimistic_write')
+        .getOne();
 
       if (!artwork) {
         throw new NotFoundException(
@@ -146,19 +148,22 @@ export class SalesService {
         gallery,
         invoice,
       });
+      const previousStatus = artwork.status;
+
       await manager.save(Sale, sale);
 
       await manager.update(Artwork, artwork.id, { status: ArtworkStatus.SOLD });
 
       const history = manager.create(ArtworkStatusHistory, {
         artwork,
-        previousStatus: artwork.status,
+        previousStatus,
         newStatus: ArtworkStatus.SOLD,
         reason: `Sold to ${dto.buyer} for ${dto.salePrice}€`,
         changedBy: gallery,
       });
       await manager.save(ArtworkStatusHistory, history);
 
+      sale.artwork.status = ArtworkStatus.SOLD;
       return sale;
     });
   }

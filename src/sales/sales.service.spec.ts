@@ -22,7 +22,15 @@ const mockArtwork = {
   artist: { id: 'artist-1', firstName: 'Pablo', lastName: 'Picasso' },
 };
 
+const mockQueryBuilder = {
+  innerJoinAndSelect: jest.fn().mockReturnThis(),
+  where: jest.fn().mockReturnThis(),
+  setLock: jest.fn().mockReturnThis(),
+  getOne: jest.fn(),
+};
+
 const mockManager = {
+  createQueryBuilder: jest.fn(() => mockQueryBuilder),
   findOne: jest.fn(),
   create: jest.fn((entity: any, data: any) => ({ ...data, id: 'new-id' })),
   save: jest.fn((entity: any, data: any) =>
@@ -97,7 +105,7 @@ describe('SalesService', () => {
 
   describe('processSale', () => {
     it('throws BusinessRuleViolationException when artwork is ON_LOAN', async () => {
-      mockManager.findOne.mockResolvedValueOnce({
+      mockQueryBuilder.getOne.mockResolvedValueOnce({
         ...mockArtwork,
         status: ArtworkStatus.ON_LOAN,
       });
@@ -132,7 +140,7 @@ describe('SalesService', () => {
     });
 
     it('throws BusinessRuleViolationException when price is below reserve', async () => {
-      mockManager.findOne.mockResolvedValueOnce({
+      mockQueryBuilder.getOne.mockResolvedValueOnce({
         ...mockArtwork,
         status: ArtworkStatus.AVAILABLE,
         reservePrice: 8000,
@@ -152,14 +160,16 @@ describe('SalesService', () => {
     });
 
     it('processes a valid sale in a transaction', async () => {
-      mockManager.findOne
-        .mockResolvedValueOnce({
-          ...mockArtwork,
-          status: ArtworkStatus.AVAILABLE,
-        })
-        .mockResolvedValueOnce({ id: 'gallery-1', email: 'g@test.com' });
+      mockQueryBuilder.getOne.mockResolvedValueOnce({
+        ...mockArtwork,
+        status: ArtworkStatus.AVAILABLE,
+      });
+      mockManager.findOne.mockResolvedValueOnce({
+        id: 'gallery-1',
+        email: 'g@test.com',
+      });
 
-      await service.processSale(
+      const result = await service.processSale(
         {
           artworkId: 'artwork-1',
           buyer: 'Jean',
@@ -169,6 +179,14 @@ describe('SalesService', () => {
         mockGalleryUser,
       );
 
+      expect(result.artwork.status).toBe(ArtworkStatus.SOLD);
+      expect(mockManager.create).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          previousStatus: ArtworkStatus.AVAILABLE,
+          newStatus: ArtworkStatus.SOLD,
+        }),
+      );
       expect(mockManager.save).toHaveBeenCalledTimes(3);
       expect(mockManager.update).toHaveBeenCalledWith(
         expect.anything(),
