@@ -216,6 +216,29 @@ describe('ExhibitionsService', () => {
     });
   });
 
+  describe('update', () => {
+    it('only updates the whitelisted fields and converts date strings', async () => {
+      const existing = {
+        id: 'exhibition-1',
+        title: 'Old title',
+        gallery: { id: 'gallery-1' },
+        startDate: new Date('2026-01-01'),
+        endDate: new Date('2026-01-31'),
+      };
+      mockExhibitionsRepository.findOne.mockResolvedValue(existing);
+
+      const result = await service.update(
+        'exhibition-1',
+        { title: 'New title', startDate: '2026-02-01' },
+        mockGalleryUser,
+      );
+
+      expect(result.title).toBe('New title');
+      expect(result.startDate).toEqual(new Date('2026-02-01'));
+      expect(result.endDate).toEqual(new Date('2026-01-31'));
+    });
+  });
+
   describe('updateStatus', () => {
     it('throws BusinessRuleViolationException when starting an exhibition with zero artworks', async () => {
       mockExhibitionsRepository.findOne.mockResolvedValue({

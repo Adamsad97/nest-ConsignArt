@@ -136,7 +136,18 @@ export class ExhibitionsService {
     currentUser: AuthenticatedUser,
   ): Promise<Exhibition> {
     const exhibition = await this.findOne(id, currentUser);
-    Object.assign(exhibition, dto);
+
+    exhibition.title = dto.title ?? exhibition.title;
+    exhibition.description = dto.description ?? exhibition.description;
+    exhibition.location = dto.location ?? exhibition.location;
+    exhibition.virtualLink = dto.virtualLink ?? exhibition.virtualLink;
+    exhibition.startDate = dto.startDate
+      ? new Date(dto.startDate)
+      : exhibition.startDate;
+    exhibition.endDate = dto.endDate
+      ? new Date(dto.endDate)
+      : exhibition.endDate;
+
     return this.exhibitionsRepository.save(exhibition);
   }
 
