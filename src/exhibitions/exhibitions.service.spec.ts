@@ -22,28 +22,28 @@ const mockGalleryUser = {
 };
 
 const mockExhibitionsRepository = {
-  create: jest.fn((data: any) => ({ ...data, id: 'exhibition-1' })),
-  save: jest.fn((data: any) => Promise.resolve(data)),
-  find: jest.fn(),
-  findOne: jest.fn(),
-  remove: jest.fn(),
+  create: vi.fn((data: any) => ({ ...data, id: 'exhibition-1' })),
+  save: vi.fn((data: any) => Promise.resolve(data)),
+  find: vi.fn(),
+  findOne: vi.fn(),
+  remove: vi.fn(),
 };
 
 const mockExhibitionArtworkRepository = {
-  create: jest.fn((data: any) => ({ ...data, id: 'ea-1' })),
-  save: jest.fn((data: any) => Promise.resolve(data)),
-  findOne: jest.fn(),
-  remove: jest.fn(),
+  create: vi.fn((data: any) => ({ ...data, id: 'ea-1' })),
+  save: vi.fn((data: any) => Promise.resolve(data)),
+  findOne: vi.fn(),
+  remove: vi.fn(),
 };
 
-const mockArtworksService = { findOne: jest.fn(), changeStatus: jest.fn() };
-const mockUsersService = { findOne: jest.fn() };
+const mockArtworksService = { findOne: vi.fn(), changeStatus: vi.fn() };
+const mockUsersService = { findOne: vi.fn() };
 
 const mockManager = {
-  findOne: jest.fn(),
-  find: jest.fn(),
-  create: jest.fn((entity: any, data: any) => ({ ...data })),
-  save: jest.fn((entity: any, data: any) =>
+  findOne: vi.fn(),
+  find: vi.fn(),
+  create: vi.fn((entity: any, data: any) => ({ ...data })),
+  save: vi.fn((entity: any, data: any) =>
     Promise.resolve(
       Array.isArray(data) ? data : { ...data, id: 'exhibition-1' },
     ),
@@ -51,14 +51,14 @@ const mockManager = {
 };
 
 const mockDataSource = {
-  transaction: jest.fn((cb: (manager: any) => Promise<any>) => cb(mockManager)),
+  transaction: vi.fn((cb: (manager: any) => Promise<any>) => cb(mockManager)),
 };
 
 describe('ExhibitionsService', () => {
   let service: ExhibitionsService;
 
   beforeEach(async () => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -92,9 +92,9 @@ describe('ExhibitionsService', () => {
       mockManager.findOne.mockResolvedValue({ id: 'gallery-1' });
       mockManager.find.mockResolvedValue([]);
 
-      await expect(
-        service.create(dto as any, mockGalleryUser as any),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.create(dto, mockGalleryUser)).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('throws ForbiddenException when an artwork does not belong to the caller gallery', async () => {
@@ -108,9 +108,9 @@ describe('ExhibitionsService', () => {
         },
       ]);
 
-      await expect(
-        service.create(dto as any, mockGalleryUser as any),
-      ).rejects.toThrow(ForbiddenException);
+      await expect(service.create(dto, mockGalleryUser)).rejects.toThrow(
+        ForbiddenException,
+      );
     });
 
     it('throws BusinessRuleViolationException when an artwork is not available', async () => {
@@ -124,9 +124,9 @@ describe('ExhibitionsService', () => {
         },
       ]);
 
-      await expect(
-        service.create(dto as any, mockGalleryUser as any),
-      ).rejects.toThrow(BusinessRuleViolationException);
+      await expect(service.create(dto, mockGalleryUser)).rejects.toThrow(
+        BusinessRuleViolationException,
+      );
     });
 
     it('creates the exhibition with its artworks in a single transaction', async () => {
@@ -169,8 +169,8 @@ describe('ExhibitionsService', () => {
       await expect(
         service.addArtwork(
           'exhibition-1',
-          { artworkId: 'artwork-1' } as any,
-          mockGalleryUser as any,
+          { artworkId: 'artwork-1' },
+          mockGalleryUser,
         ),
       ).rejects.toThrow(ConflictException);
     });
@@ -186,8 +186,8 @@ describe('ExhibitionsService', () => {
       await expect(
         service.addArtwork(
           'exhibition-1',
-          { artworkId: 'artwork-1' } as any,
-          mockGalleryUser as any,
+          { artworkId: 'artwork-1' },
+          mockGalleryUser,
         ),
       ).rejects.toThrow(BusinessRuleViolationException);
     });
@@ -252,7 +252,7 @@ describe('ExhibitionsService', () => {
         service.updateStatus(
           'exhibition-1',
           ExhibitionStatus.ONGOING,
-          mockGalleryUser as any,
+          mockGalleryUser,
         ),
       ).rejects.toThrow(BusinessRuleViolationException);
     });
@@ -316,7 +316,7 @@ describe('ExhibitionsService', () => {
       });
 
       await expect(
-        service.findOne('exhibition-1', mockGalleryUser as any),
+        service.findOne('exhibition-1', mockGalleryUser),
       ).rejects.toThrow(ForbiddenException);
     });
   });

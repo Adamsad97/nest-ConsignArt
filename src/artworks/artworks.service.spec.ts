@@ -36,27 +36,27 @@ const mockArtwork = {
 };
 
 const mockArtworksRepository = {
-  count: jest.fn(),
-  create: jest.fn((data: any) => ({ ...data, id: 'new-id' })),
-  save: jest.fn((data: any) => Promise.resolve(data)),
-  find: jest.fn(),
-  findOne: jest.fn(),
-  remove: jest.fn(),
+  count: vi.fn(),
+  create: vi.fn((data: any) => ({ ...data, id: 'new-id' })),
+  save: vi.fn((data: any) => Promise.resolve(data)),
+  find: vi.fn(),
+  findOne: vi.fn(),
+  remove: vi.fn(),
 };
 
 const mockStatusHistoryRepository = {
-  create: jest.fn((data: any) => data),
-  save: jest.fn((data: any) => Promise.resolve(data)),
+  create: vi.fn((data: any) => data),
+  save: vi.fn((data: any) => Promise.resolve(data)),
 };
 
-const mockArtistsService = { findOne: jest.fn() };
-const mockUsersService = { findOne: jest.fn() };
+const mockArtistsService = { findOne: vi.fn() };
+const mockUsersService = { findOne: vi.fn() };
 
 describe('ArtworksService', () => {
   let service: ArtworksService;
 
   beforeEach(async () => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -86,7 +86,7 @@ describe('ArtworksService', () => {
       });
 
       await expect(
-        service.create({ artistId: 'artist-1' } as any, mockGalleryUser as any),
+        service.create({ artistId: 'artist-1' } as any, mockGalleryUser),
       ).rejects.toThrow(ForbiddenException);
     });
 
@@ -129,7 +129,7 @@ describe('ArtworksService', () => {
         service.changeStatus(
           'artwork-1',
           ArtworkStatus.SOLD,
-          mockOtherGalleryUser as any,
+          mockOtherGalleryUser,
         ),
       ).rejects.toThrow(ForbiddenException);
     });
@@ -141,7 +141,7 @@ describe('ArtworksService', () => {
         service.changeStatus(
           'artwork-1',
           ArtworkStatus.AVAILABLE,
-          mockGalleryUser as any,
+          mockGalleryUser,
         ),
       ).rejects.toThrow(BadRequestException);
     });
@@ -156,7 +156,7 @@ describe('ArtworksService', () => {
         service.changeStatus(
           'artwork-1',
           ArtworkStatus.RETURNED,
-          mockGalleryUser as any,
+          mockGalleryUser,
         ),
       ).rejects.toThrow(BusinessRuleViolationException);
     });
@@ -188,7 +188,7 @@ describe('ArtworksService', () => {
       mockArtworksRepository.findOne.mockResolvedValue({ ...mockArtwork });
 
       await expect(
-        service.remove('artwork-1', mockOtherGalleryUser as any),
+        service.remove('artwork-1', mockOtherGalleryUser),
       ).rejects.toThrow(ForbiddenException);
     });
 

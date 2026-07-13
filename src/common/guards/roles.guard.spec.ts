@@ -32,35 +32,37 @@ describe('RolesGuard', () => {
   });
 
   it('allows access when no roles metadata is defined', () => {
-    jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue(undefined);
+    vi.spyOn(reflector, 'getAllAndOverride').mockReturnValue(undefined);
     const ctx = createMockContext(Role.COLLECTOR);
     expect(guard.canActivate(ctx)).toBe(true);
   });
 
   it('allows access when user role matches required roles', () => {
-    jest
-      .spyOn(reflector, 'getAllAndOverride')
-      .mockReturnValue([Role.GALLERY, Role.ADMIN]);
+    vi.spyOn(reflector, 'getAllAndOverride').mockReturnValue([
+      Role.GALLERY,
+      Role.ADMIN,
+    ]);
     const ctx = createMockContext(Role.GALLERY);
     expect(guard.canActivate(ctx)).toBe(true);
   });
 
   it('throws ForbiddenException when user role does not match', () => {
-    jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue([Role.GALLERY]);
+    vi.spyOn(reflector, 'getAllAndOverride').mockReturnValue([Role.GALLERY]);
     const ctx = createMockContext(Role.COLLECTOR);
     expect(() => guard.canActivate(ctx)).toThrow(ForbiddenException);
   });
 
   it('throws ForbiddenException when ADMIN tries accessing GALLERY-only route', () => {
-    jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue([Role.GALLERY]);
+    vi.spyOn(reflector, 'getAllAndOverride').mockReturnValue([Role.GALLERY]);
     const ctx = createMockContext(Role.ADMIN);
     expect(() => guard.canActivate(ctx)).toThrow(ForbiddenException);
   });
 
   it('allows ADMIN when ADMIN is in the required roles list', () => {
-    jest
-      .spyOn(reflector, 'getAllAndOverride')
-      .mockReturnValue([Role.GALLERY, Role.ADMIN]);
+    vi.spyOn(reflector, 'getAllAndOverride').mockReturnValue([
+      Role.GALLERY,
+      Role.ADMIN,
+    ]);
     const ctx = createMockContext(Role.ADMIN);
     expect(guard.canActivate(ctx)).toBe(true);
   });

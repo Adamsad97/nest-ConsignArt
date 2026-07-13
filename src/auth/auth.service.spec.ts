@@ -10,17 +10,17 @@ import { UsersService } from '../users/users.service';
 import { Role } from '../users/enums/role.enum';
 
 const mockUsersService = {
-  findByEmail: jest.fn(),
-  create: jest.fn(),
-  findOne: jest.fn(),
+  findByEmail: vi.fn(),
+  create: vi.fn(),
+  findOne: vi.fn(),
 };
 
 const mockJwtService = {
-  sign: jest.fn().mockReturnValue('signed-jwt'),
+  sign: vi.fn().mockReturnValue('signed-jwt'),
 };
 
 const mockConfigService = {
-  get: jest.fn((key: string) => {
+  get: vi.fn((key: string) => {
     const values: Record<string, string> = {
       JWT_SECRET: 'test-secret',
       JWT_ACCESS_EXPIRATION: '15m',
@@ -30,17 +30,17 @@ const mockConfigService = {
 };
 
 const mockRefreshTokenRepository = {
-  find: jest.fn(),
-  save: jest.fn((rt: any) => Promise.resolve({ id: 'rt-1', ...rt })),
-  update: jest.fn(),
-  create: jest.fn((rt: any) => rt),
+  find: vi.fn(),
+  save: vi.fn((rt: any) => Promise.resolve({ id: 'rt-1', ...rt })),
+  update: vi.fn(),
+  create: vi.fn((rt: any) => rt),
 };
 
 describe('AuthService', () => {
   let service: AuthService;
 
   beforeEach(async () => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -69,7 +69,7 @@ describe('AuthService', () => {
           firstName: 'Jean',
           lastName: 'Dupont',
           role: Role.COLLECTOR,
-        } as any),
+        }),
       ).rejects.toThrow(ConflictException);
     });
 

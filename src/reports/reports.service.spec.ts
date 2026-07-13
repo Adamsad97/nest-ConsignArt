@@ -17,28 +17,28 @@ const mockGalleryUser = {
 };
 
 const mockStatementsRepository = {
-  create: jest.fn((data: any) => data),
-  save: jest.fn((data: any) => Promise.resolve({ id: 'statement-1', ...data })),
-  find: jest.fn(),
+  create: vi.fn((data: any) => data),
+  save: vi.fn((data: any) => Promise.resolve({ id: 'statement-1', ...data })),
+  find: vi.fn(),
 };
 
 const mockSalesRepository = {
-  find: jest.fn(),
-  count: jest.fn(),
+  find: vi.fn(),
+  count: vi.fn(),
 };
 
 const mockArtistsRepository = {
-  findOne: jest.fn(),
+  findOne: vi.fn(),
 };
 
-const mockUsersService = { findOne: jest.fn(), findAll: jest.fn() };
-const mockArtworksService = { findAll: jest.fn() };
+const mockUsersService = { findOne: vi.fn(), findAll: vi.fn() };
+const mockArtworksService = { findAll: vi.fn() };
 
 describe('ReportsService', () => {
   let service: ReportsService;
 
   beforeEach(async () => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -69,7 +69,7 @@ describe('ReportsService', () => {
           'missing',
           new Date('2026-01-01'),
           new Date('2026-01-31'),
-          mockGalleryUser as any,
+          mockGalleryUser,
         ),
       ).rejects.toThrow(NotFoundException);
     });

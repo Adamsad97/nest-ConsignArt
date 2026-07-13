@@ -22,21 +22,21 @@ const mockArtist = {
 };
 
 const mockRepo = {
-  create: jest.fn((data: any) => ({ ...data, id: 'new-id' })),
-  save: jest.fn((data: any) => Promise.resolve(data)),
-  find: jest.fn(),
-  findOne: jest.fn(),
+  create: vi.fn((data: any) => ({ ...data, id: 'new-id' })),
+  save: vi.fn((data: any) => Promise.resolve(data)),
+  find: vi.fn(),
+  findOne: vi.fn(),
 };
 
 const mockUsersService = {
-  findOne: jest.fn(),
+  findOne: vi.fn(),
 };
 
 describe('ArtistsService', () => {
   let service: ArtistsService;
 
   beforeEach(async () => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [

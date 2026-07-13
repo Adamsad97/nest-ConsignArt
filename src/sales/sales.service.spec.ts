@@ -23,31 +23,31 @@ const mockArtwork = {
 };
 
 const mockQueryBuilder = {
-  innerJoinAndSelect: jest.fn().mockReturnThis(),
-  where: jest.fn().mockReturnThis(),
-  setLock: jest.fn().mockReturnThis(),
-  getOne: jest.fn(),
+  innerJoinAndSelect: vi.fn().mockReturnThis(),
+  where: vi.fn().mockReturnThis(),
+  setLock: vi.fn().mockReturnThis(),
+  getOne: vi.fn(),
 };
 
 const mockManager = {
-  createQueryBuilder: jest.fn(() => mockQueryBuilder),
-  findOne: jest.fn(),
-  create: jest.fn((entity: any, data: any) => ({ ...data, id: 'new-id' })),
-  save: jest.fn((entity: any, data: any) =>
+  createQueryBuilder: vi.fn(() => mockQueryBuilder),
+  findOne: vi.fn(),
+  create: vi.fn((entity: any, data: any) => ({ ...data, id: 'new-id' })),
+  save: vi.fn((entity: any, data: any) =>
     Promise.resolve({ ...data, id: 'saved-id' }),
   ),
-  update: jest.fn().mockResolvedValue({}),
+  update: vi.fn().mockResolvedValue({}),
 };
 
 const mockDataSource = {
-  transaction: jest.fn((cb: (manager: any) => Promise<any>) => cb(mockManager)),
+  transaction: vi.fn((cb: (manager: any) => Promise<any>) => cb(mockManager)),
 };
 
 describe('SalesService', () => {
   let service: SalesService;
 
   beforeEach(async () => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -55,11 +55,11 @@ describe('SalesService', () => {
         { provide: getDataSourceToken(), useValue: mockDataSource },
         {
           provide: getRepositoryToken(Sale),
-          useValue: { find: jest.fn(), findOne: jest.fn(), count: jest.fn() },
+          useValue: { find: vi.fn(), findOne: vi.fn(), count: vi.fn() },
         },
         {
           provide: getRepositoryToken(Invoice),
-          useValue: { findOne: jest.fn() },
+          useValue: { findOne: vi.fn() },
         },
       ],
     }).compile();

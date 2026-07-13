@@ -7,13 +7,13 @@ import {
 import { Artwork } from '../../artworks/entities/artwork.entity';
 import { BusinessRuleViolationException } from '../exceptions/business-rule-violation.exception';
 
-const mockRepo = { count: jest.fn() };
+const mockRepo = { count: vi.fn() };
 
 describe('ArtworkOwnerLimitPipe', () => {
   let pipe: ArtworkOwnerLimitPipe;
 
   beforeEach(async () => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [

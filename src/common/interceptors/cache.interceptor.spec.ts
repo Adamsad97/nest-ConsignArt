@@ -16,18 +16,18 @@ describe('CacheInterceptor', () => {
     }) as unknown as ExecutionContext;
 
   const buildHandler = (returnValue: unknown) => {
-    const handle = jest.fn(() => of(returnValue));
+    const handle = vi.fn(() => of(returnValue));
     const handler: CallHandler = { handle };
     return { handler, handle };
   };
 
   beforeEach(() => {
     interceptor = new CacheInterceptor();
-    jest.useFakeTimers();
+    vi.useFakeTimers();
   });
 
   afterEach(() => {
-    jest.useRealTimers();
+    vi.useRealTimers();
   });
 
   it('bypasses the cache for non-GET requests', (done) => {
@@ -70,7 +70,7 @@ describe('CacheInterceptor', () => {
     const { handler } = buildHandler([{ id: '1' }]);
 
     interceptor.intercept(context, handler).subscribe(() => {
-      jest.advanceTimersByTime(31_000);
+      vi.advanceTimersByTime(31_000);
 
       const second = buildHandler([{ id: '2' }]);
       interceptor.intercept(context, second.handler).subscribe((result) => {

@@ -3,7 +3,7 @@ import { OwnershipGuard } from './ownership.guard';
 import { Role } from '../../users/enums/role.enum';
 
 describe('OwnershipGuard', () => {
-  const mockArtworksService = { findOne: jest.fn() };
+  const mockArtworksService = { findOne: vi.fn() };
   let guard: OwnershipGuard;
 
   const buildContext = (user: unknown, params: unknown): ExecutionContext =>
@@ -14,7 +14,7 @@ describe('OwnershipGuard', () => {
     }) as unknown as ExecutionContext;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     guard = new OwnershipGuard(mockArtworksService as any);
   });
 

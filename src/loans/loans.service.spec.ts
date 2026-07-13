@@ -22,20 +22,20 @@ const mockOtherGalleryUser = {
 };
 
 const mockLoansRepository = {
-  create: jest.fn((data: any) => ({ ...data, id: 'loan-1' })),
-  save: jest.fn((data: any) => Promise.resolve(data)),
-  find: jest.fn(),
-  findOne: jest.fn(),
+  create: vi.fn((data: any) => ({ ...data, id: 'loan-1' })),
+  save: vi.fn((data: any) => Promise.resolve(data)),
+  find: vi.fn(),
+  findOne: vi.fn(),
 };
 
-const mockArtworksService = { findOne: jest.fn(), changeStatus: jest.fn() };
-const mockUsersService = { findOne: jest.fn() };
+const mockArtworksService = { findOne: vi.fn(), changeStatus: vi.fn() };
+const mockUsersService = { findOne: vi.fn() };
 
 describe('LoansService', () => {
   let service: LoansService;
 
   beforeEach(async () => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -60,10 +60,7 @@ describe('LoansService', () => {
       mockArtworksService.findOne.mockResolvedValue(artwork);
 
       await expect(
-        service.create(
-          { artworkId: 'artwork-1' } as any,
-          mockOtherGalleryUser as any,
-        ),
+        service.create({ artworkId: 'artwork-1' } as any, mockOtherGalleryUser),
       ).rejects.toThrow(ForbiddenException);
     });
 
@@ -74,10 +71,7 @@ describe('LoansService', () => {
       });
 
       await expect(
-        service.create(
-          { artworkId: 'artwork-1' } as any,
-          mockGalleryUser as any,
-        ),
+        service.create({ artworkId: 'artwork-1' } as any, mockGalleryUser),
       ).rejects.toThrow(BusinessRuleViolationException);
     });
 
@@ -115,7 +109,7 @@ describe('LoansService', () => {
       });
 
       await expect(
-        service.returnLoan('loan-1', mockGalleryUser as any),
+        service.returnLoan('loan-1', mockGalleryUser),
       ).rejects.toThrow(BusinessRuleViolationException);
     });
 

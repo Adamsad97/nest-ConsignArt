@@ -16,18 +16,18 @@ const mockUser = {
 };
 
 const mockRepository = {
-  create: jest.fn((data: any) => data),
-  save: jest.fn((data: any) => Promise.resolve(data)),
-  find: jest.fn(),
-  findOne: jest.fn(),
-  remove: jest.fn(),
+  create: vi.fn((data: any) => data),
+  save: vi.fn((data: any) => Promise.resolve(data)),
+  find: vi.fn(),
+  findOne: vi.fn(),
+  remove: vi.fn(),
 };
 
 describe('UsersService', () => {
   let service: UsersService;
 
   beforeEach(async () => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
