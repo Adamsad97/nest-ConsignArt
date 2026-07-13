@@ -4,6 +4,8 @@ import {
   IsOptional,
   IsDateString,
   IsUrl,
+  IsUUID,
+  ArrayMinSize,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
@@ -35,4 +37,12 @@ export class CreateExhibitionDto {
   @ApiProperty({ example: '2026-09-30' })
   @IsDateString()
   endDate: string;
+
+  @ApiProperty({
+    description: 'UUIDs of the artworks to feature (at least one required)',
+    type: [String],
+  })
+  @IsUUID('4', { each: true })
+  @ArrayMinSize(1)
+  artworkIds: string[];
 }

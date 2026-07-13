@@ -4,13 +4,15 @@ import {
   ForbiddenException,
   ConflictException,
 } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
+import { DataSource, In, Repository } from 'typeorm';
 import { Exhibition } from './entities/exhibition.entity';
 import { ExhibitionArtwork } from './entities/exhibition-artwork.entity';
 import { CreateExhibitionDto } from './dto/create-exhibition.dto';
 import { UpdateExhibitionDto } from './dto/update-exhibition.dto';
 import { AddArtworkDto } from './dto/add-artwork.dto';
+import { Artwork } from '../artworks/entities/artwork.entity';
+import { User } from '../users/entities/user.entity';
 import { ArtworksService } from '../artworks/artworks.service';
 import { UsersService } from '../users/users.service';
 import { AuthenticatedUser } from '../common/decorators/current-user.decorator';
@@ -22,6 +24,8 @@ import { BusinessRuleViolationException } from '../common/exceptions/business-ru
 @Injectable()
 export class ExhibitionsService {
   constructor(
+    @InjectDataSource()
+    private readonly dataSource: DataSource,
     @InjectRepository(Exhibition)
     private readonly exhibitionsRepository: Repository<Exhibition>,
     @InjectRepository(ExhibitionArtwork)
@@ -34,19 +38,61 @@ export class ExhibitionsService {
     dto: CreateExhibitionDto,
     currentUser: AuthenticatedUser,
   ): Promise<Exhibition> {
-    const gallery = await this.usersService.findOne(currentUser.id);
+    return this.dataSource.transaction(async (manager) => {
+      const gallery = await manager.findOne(User, {
+        where: { id: currentUser.id },
+      });
+      if (!gallery) {
+        throw new ForbiddenException('Gallery user not found');
+      }
 
-    const exhibition = this.exhibitionsRepository.create({
-      title: dto.title,
-      description: dto.description,
-      location: dto.location,
-      virtualLink: dto.virtualLink,
-      startDate: new Date(dto.startDate),
-      endDate: new Date(dto.endDate),
-      gallery,
+      const artworks = await manager.find(Artwork, {
+        where: { id: In(dto.artworkIds) },
+        relations: { gallery: true },
+      });
+
+      if (artworks.length !== new Set(dto.artworkIds).size) {
+        throw new NotFoundException('One or more artworks were not found');
+      }
+
+      for (const artwork of artworks) {
+        if (
+          artwork.gallery.id !== currentUser.id &&
+          currentUser.role !== Role.ADMIN
+        ) {
+          throw new ForbiddenException(
+            'This artwork does not belong to your gallery',
+          );
+        }
+        if (artwork.status !== ArtworkStatus.AVAILABLE) {
+          throw new BusinessRuleViolationException(
+            `Artwork "${artwork.title}" is not available`,
+            'ARTWORK_NOT_AVAILABLE',
+          );
+        }
+      }
+
+      const exhibition = manager.create(Exhibition, {
+        title: dto.title,
+        description: dto.description,
+        location: dto.location,
+        virtualLink: dto.virtualLink,
+        startDate: new Date(dto.startDate),
+        endDate: new Date(dto.endDate),
+        gallery,
+      });
+      const savedExhibition = await manager.save(Exhibition, exhibition);
+
+      const exhibitionArtworks = artworks.map((artwork) =>
+        manager.create(ExhibitionArtwork, {
+          exhibition: savedExhibition,
+          artwork,
+        }),
+      );
+      await manager.save(ExhibitionArtwork, exhibitionArtworks);
+
+      return savedExhibition;
     });
-
-    return this.exhibitionsRepository.save(exhibition);
   }
 
   findAll(currentUser: AuthenticatedUser): Promise<Exhibition[]> {

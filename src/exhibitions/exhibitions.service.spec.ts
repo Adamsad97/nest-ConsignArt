@@ -1,6 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { ConflictException, ForbiddenException } from '@nestjs/common';
-import { getRepositoryToken } from '@nestjs/typeorm';
+import {
+  ConflictException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
+import { getDataSourceToken, getRepositoryToken } from '@nestjs/typeorm';
 import { ExhibitionsService } from './exhibitions.service';
 import { Exhibition } from './entities/exhibition.entity';
 import { ExhibitionArtwork } from './entities/exhibition-artwork.entity';
@@ -35,6 +39,21 @@ const mockExhibitionArtworkRepository = {
 const mockArtworksService = { findOne: jest.fn(), changeStatus: jest.fn() };
 const mockUsersService = { findOne: jest.fn() };
 
+const mockManager = {
+  findOne: jest.fn(),
+  find: jest.fn(),
+  create: jest.fn((entity: any, data: any) => ({ ...data })),
+  save: jest.fn((entity: any, data: any) =>
+    Promise.resolve(
+      Array.isArray(data) ? data : { ...data, id: 'exhibition-1' },
+    ),
+  ),
+};
+
+const mockDataSource = {
+  transaction: jest.fn((cb: (manager: any) => Promise<any>) => cb(mockManager)),
+};
+
 describe('ExhibitionsService', () => {
   let service: ExhibitionsService;
 
@@ -44,6 +63,7 @@ describe('ExhibitionsService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ExhibitionsService,
+        { provide: getDataSourceToken(), useValue: mockDataSource },
         {
           provide: getRepositoryToken(Exhibition),
           useValue: mockExhibitionsRepository,
@@ -58,6 +78,73 @@ describe('ExhibitionsService', () => {
     }).compile();
 
     service = module.get<ExhibitionsService>(ExhibitionsService);
+  });
+
+  describe('create', () => {
+    const dto = {
+      title: 'Modern Masters',
+      startDate: '2026-09-01',
+      endDate: '2026-09-30',
+      artworkIds: ['artwork-1'],
+    };
+
+    it('throws NotFoundException when an artwork id does not exist', async () => {
+      mockManager.findOne.mockResolvedValue({ id: 'gallery-1' });
+      mockManager.find.mockResolvedValue([]);
+
+      await expect(
+        service.create(dto as any, mockGalleryUser as any),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('throws ForbiddenException when an artwork does not belong to the caller gallery', async () => {
+      mockManager.findOne.mockResolvedValue({ id: 'gallery-1' });
+      mockManager.find.mockResolvedValue([
+        {
+          id: 'artwork-1',
+          gallery: { id: 'gallery-2' },
+          status: ArtworkStatus.AVAILABLE,
+          title: 'X',
+        },
+      ]);
+
+      await expect(
+        service.create(dto as any, mockGalleryUser as any),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('throws BusinessRuleViolationException when an artwork is not available', async () => {
+      mockManager.findOne.mockResolvedValue({ id: 'gallery-1' });
+      mockManager.find.mockResolvedValue([
+        {
+          id: 'artwork-1',
+          gallery: { id: 'gallery-1' },
+          status: ArtworkStatus.SOLD,
+          title: 'X',
+        },
+      ]);
+
+      await expect(
+        service.create(dto as any, mockGalleryUser as any),
+      ).rejects.toThrow(BusinessRuleViolationException);
+    });
+
+    it('creates the exhibition with its artworks in a single transaction', async () => {
+      mockManager.findOne.mockResolvedValue({ id: 'gallery-1' });
+      mockManager.find.mockResolvedValue([
+        {
+          id: 'artwork-1',
+          gallery: { id: 'gallery-1' },
+          status: ArtworkStatus.AVAILABLE,
+          title: 'X',
+        },
+      ]);
+
+      const result = await service.create(dto, mockGalleryUser);
+
+      expect(result.title).toBe('Modern Masters');
+      expect(mockManager.save).toHaveBeenCalledTimes(2);
+    });
   });
 
   describe('addArtwork', () => {
