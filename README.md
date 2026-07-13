@@ -2,6 +2,40 @@
 
 [![CI](https://github.com/Adamsad97/nest-ConsignArt-/actions/workflows/ci.yml/badge.svg)](https://github.com/Adamsad97/nest-ConsignArt-/actions/workflows/ci.yml)
 
+B2B REST API for art galleries to manage artwork consignment: an artist entrusts artworks to a gallery, which exhibits and sells them for a commission. Built with NestJS, TypeORM and PostgreSQL.
+
+## Features
+
+- **Auth** — JWT access + refresh tokens, bcrypt, admin-gated gallery activation
+- **Artists** — gallery-owned catalog, admin-only transfer between galleries
+- **Artworks** — consignment lifecycle (`available` → `on_loan` → `sold`/`returned`), full status history, reserve price enforcement, 50-active-artworks-per-artist limit
+- **Exhibitions & loans** — artwork availability automatically tracked
+- **Sales** — atomic transaction, tiered commission (40/35/30%), invoicing
+- **Reports** — dashboards for gallery, artist and admin
+
+## Technical choices
+
+| Choice | Why |
+|---|---|
+| PostgreSQL over SQLite | Row-level locking needed for the sale transaction, relational integrity across 11 tables |
+| JWT access + refresh | Stateless access; refresh tokens stored hashed and revocable |
+| Vitest | Faster than Jest for this project size, native ESM/TS support via SWC |
+
+## Database schema
+
+```
+users ─┬─< artists ─< artworks ─┬─< artwork_status_history
+       │                        ├─< exhibition_artworks >─ exhibitions
+       │                        ├─< loans
+       │                        └─< sales ── invoices
+       ├─< exhibitions
+       ├─< loans
+       ├─< sales
+       └─< refresh_tokens
+
+artists ─< artist_statements
+```
+
 ## Prerequisites
 
 - Docker and Docker Compose

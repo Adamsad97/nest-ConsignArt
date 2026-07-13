@@ -69,6 +69,7 @@ describe('ConsignArt API (e2e)', () => {
     let galleryToken: string;
     let galleryUserId: string;
     let artistId: string;
+    let artworkId: string;
 
     it('registers a gallery account as inactive', async () => {
       const res = await request(app.getHttpServer())
@@ -149,6 +150,7 @@ describe('ConsignArt API (e2e)', () => {
         })
         .expect(201);
 
+      artworkId = res.body.data.id;
       expect(res.body.data.price).toBe(1500.26);
       expect(res.body.data.reservePrice).toBe(1000.99);
     });
@@ -163,6 +165,58 @@ describe('ConsignArt API (e2e)', () => {
           (a: { title: string }) => a.title === 'Self-Portrait',
         ),
       ).toBe(true);
+    });
+
+    it('rejects a sale below the reserve price', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/api/v1/sales')
+        .set('Authorization', `Bearer ${galleryToken}`)
+        .send({
+          artworkId,
+          buyer: 'Jean Dupont',
+          buyerContact: 'jean@test.com',
+          salePrice: 500,
+        })
+        .expect(422);
+
+      expect(res.body.rule).toBe('BELOW_RESERVE_PRICE');
+    });
+
+    it('processes a sale with the correct commission tier and invoice, and updates the artwork status', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/api/v1/sales')
+        .set('Authorization', `Bearer ${galleryToken}`)
+        .send({
+          artworkId,
+          buyer: 'Jean Dupont',
+          buyerContact: 'jean@test.com',
+          salePrice: 1500.26,
+        })
+        .expect(201);
+
+      expect(res.body.data.commissionRate).toBe(0.4);
+      expect(res.body.data.galleryCommission).toBe(600.1);
+      expect(res.body.data.artistAmount).toBe(900.16);
+      expect(res.body.data.invoice.invoiceNumber).toMatch(/^INV-/);
+      expect(res.body.data.artwork.status).toBe('sold');
+
+      const artworkRes = await request(app.getHttpServer())
+        .get(`/api/v1/artworks/${artworkId}`)
+        .expect(200);
+      expect(artworkRes.body.data.status).toBe('sold');
+    });
+
+    it('refuses a second sale of the same artwork now that it is sold', async () => {
+      await request(app.getHttpServer())
+        .post('/api/v1/sales')
+        .set('Authorization', `Bearer ${galleryToken}`)
+        .send({
+          artworkId,
+          buyer: 'Someone Else',
+          buyerContact: 'someone@test.com',
+          salePrice: 1500.26,
+        })
+        .expect(422);
     });
 
     it('refuses another gallery from updating the artist it does not own', async () => {
