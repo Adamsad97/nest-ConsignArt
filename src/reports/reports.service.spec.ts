@@ -114,20 +114,46 @@ describe('ReportsService', () => {
   });
 
   describe('getGalleryDashboard', () => {
-    it('computes revenue and the top 5 artists by commission', async () => {
+    it('computes revenue, top 5 artists, monthly sales and turnover rate', async () => {
       mockSalesRepository.count.mockResolvedValue(2);
       mockSalesRepository.find.mockResolvedValue([
         {
           galleryCommission: 400,
+          salePrice: 1000,
+          saleDate: '2026-01-10',
           artwork: {
             artist: { id: 'a-1', firstName: 'Pablo', lastName: 'Picasso' },
           },
         },
         {
           galleryCommission: 800,
+          salePrice: 2000,
+          saleDate: '2026-02-15',
           artwork: {
             artist: { id: 'a-1', firstName: 'Pablo', lastName: 'Picasso' },
           },
+        },
+      ]);
+      mockArtworksService.findAll.mockResolvedValue([
+        {
+          id: 'aw-1',
+          gallery: { id: 'gallery-1' },
+          status: ArtworkStatus.SOLD,
+        },
+        {
+          id: 'aw-2',
+          gallery: { id: 'gallery-1' },
+          status: ArtworkStatus.SOLD,
+        },
+        {
+          id: 'aw-3',
+          gallery: { id: 'gallery-1' },
+          status: ArtworkStatus.AVAILABLE,
+        },
+        {
+          id: 'aw-4',
+          gallery: { id: 'gallery-2' },
+          status: ArtworkStatus.SOLD,
         },
       ]);
 
@@ -138,6 +164,11 @@ describe('ReportsService', () => {
       expect(result.topArtists).toEqual([
         { name: 'Pablo Picasso', count: 2, revenue: 1200 },
       ]);
+      expect(result.monthlySales).toEqual([
+        { month: '2026-01', artworksSold: 1, revenue: 1000 },
+        { month: '2026-02', artworksSold: 1, revenue: 2000 },
+      ]);
+      expect(result.turnoverRate).toBeCloseTo(66.67, 1);
     });
   });
 

@@ -107,6 +107,11 @@ export class ReportsService {
       string,
       { name: string; count: number; revenue: number }
     >();
+    const monthlySalesMap = new Map<
+      string,
+      { artworksSold: number; revenue: number }
+    >();
+
     for (const sale of salesData) {
       const artistId = sale.artwork.artist.id;
       const name = `${sale.artwork.artist.firstName} ${sale.artwork.artist.lastName}`;
@@ -118,16 +123,46 @@ export class ReportsService {
       current.count++;
       current.revenue += Number(sale.galleryCommission);
       artistSalesMap.set(artistId, current);
+
+      const month = new Date(sale.saleDate).toISOString().slice(0, 7);
+      const monthEntry = monthlySalesMap.get(month) ?? {
+        artworksSold: 0,
+        revenue: 0,
+      };
+      monthEntry.artworksSold++;
+      monthEntry.revenue += Number(sale.salePrice);
+      monthlySalesMap.set(month, monthEntry);
     }
 
     const topArtists = Array.from(artistSalesMap.values())
       .sort((a, b) => b.revenue - a.revenue)
       .slice(0, 5);
 
+    const monthlySales = Array.from(monthlySalesMap.entries())
+      .map(([month, data]) => ({
+        month,
+        artworksSold: data.artworksSold,
+        revenue: Math.round(data.revenue * 100) / 100,
+      }))
+      .sort((a, b) => a.month.localeCompare(b.month));
+
+    const galleryArtworks = (await this.artworksService.findAll()).filter(
+      (a) => a.gallery?.id === galleryId,
+    );
+    const soldCount = galleryArtworks.filter(
+      (a) => a.status === ArtworkStatus.SOLD,
+    ).length;
+    const turnoverRate =
+      galleryArtworks.length > 0
+        ? Math.round((soldCount / galleryArtworks.length) * 10000) / 100
+        : 0;
+
     return {
       totalSales,
       totalRevenue: Math.round(totalRevenue * 100) / 100,
       topArtists,
+      monthlySales,
+      turnoverRate,
     };
   }
 
