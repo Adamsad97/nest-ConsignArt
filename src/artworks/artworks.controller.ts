@@ -7,6 +7,7 @@ import {
   Param,
   Body,
   UseGuards,
+  UseInterceptors,
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
@@ -19,6 +20,7 @@ import { RolesGuard } from '../common/guards/roles.guard';
 import { OwnershipGuard } from '../common/guards/ownership.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { Public } from '../common/decorators/public.decorator';
+import { CacheInterceptor } from '../common/interceptors/cache.interceptor';
 import {
   CurrentUser,
   type AuthenticatedUser,
@@ -33,15 +35,17 @@ export class ArtworksController {
   constructor(private readonly artworksService: ArtworksService) {}
 
   @Public()
+  @UseInterceptors(CacheInterceptor)
   @Get()
-  @ApiOperation({ summary: 'List all artworks (public)' })
+  @ApiOperation({ summary: 'List all artworks (public, cached)' })
   findAll() {
     return this.artworksService.findAll();
   }
 
   @Public()
+  @UseInterceptors(CacheInterceptor)
   @Get(':id')
-  @ApiOperation({ summary: 'Get an artwork by ID (public)' })
+  @ApiOperation({ summary: 'Get an artwork by ID (public, cached)' })
   findOne(@Param('id') id: string) {
     return this.artworksService.findOne(id);
   }
