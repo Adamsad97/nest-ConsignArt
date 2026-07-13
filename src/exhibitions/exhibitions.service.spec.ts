@@ -201,7 +201,7 @@ describe('ExhibitionsService', () => {
       mockArtworksService.findOne.mockResolvedValue(artwork);
       mockExhibitionArtworkRepository.findOne.mockResolvedValue(null);
 
-      await service.addArtwork(
+      const result = await service.addArtwork(
         'exhibition-1',
         { artworkId: 'artwork-1' },
         mockGalleryUser,
@@ -213,6 +213,7 @@ describe('ExhibitionsService', () => {
         mockGalleryUser,
         expect.any(String),
       );
+      expect(result.artwork.status).toBe(ArtworkStatus.ON_LOAN);
     });
   });
 
@@ -257,15 +258,16 @@ describe('ExhibitionsService', () => {
     });
 
     it('moves available artworks to on_loan when the exhibition starts', async () => {
+      const exhibitionArtworks = [
+        { artwork: { id: 'artwork-1', status: ArtworkStatus.AVAILABLE } },
+      ];
       mockExhibitionsRepository.findOne.mockResolvedValue({
         id: 'exhibition-1',
         gallery: { id: 'gallery-1' },
-        exhibitionArtworks: [
-          { artwork: { id: 'artwork-1', status: ArtworkStatus.AVAILABLE } },
-        ],
+        exhibitionArtworks,
       });
 
-      await service.updateStatus(
+      const result = await service.updateStatus(
         'exhibition-1',
         ExhibitionStatus.ONGOING,
         mockGalleryUser,
@@ -276,6 +278,9 @@ describe('ExhibitionsService', () => {
         ArtworkStatus.ON_LOAN,
         mockGalleryUser,
         expect.any(String),
+      );
+      expect(result.exhibitionArtworks[0].artwork.status).toBe(
+        ArtworkStatus.ON_LOAN,
       );
     });
 

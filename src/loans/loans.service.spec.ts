@@ -93,7 +93,7 @@ describe('LoansService', () => {
         expectedReturnDate: '2026-02-01',
       };
 
-      await service.create(dto, mockGalleryUser);
+      const result = await service.create(dto, mockGalleryUser);
 
       expect(mockArtworksService.changeStatus).toHaveBeenCalledWith(
         'artwork-1',
@@ -101,6 +101,7 @@ describe('LoansService', () => {
         mockGalleryUser,
         expect.any(String),
       );
+      expect(result.artwork.status).toBe(ArtworkStatus.ON_LOAN);
     });
   });
 
@@ -136,6 +137,7 @@ describe('LoansService', () => {
         mockGalleryUser,
         expect.any(String),
       );
+      expect(result.artwork.status).toBe(ArtworkStatus.AVAILABLE);
     });
   });
 });

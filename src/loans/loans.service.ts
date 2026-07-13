@@ -67,6 +67,7 @@ export class LoansService {
       currentUser,
       `Loaned to: ${dto.borrower}`,
     );
+    saved.artwork.status = ArtworkStatus.ON_LOAN;
 
     return saved;
   }
@@ -117,6 +118,7 @@ export class LoansService {
       currentUser,
       `Returned from loan to: ${loan.borrower}`,
     );
+    saved.artwork.status = ArtworkStatus.AVAILABLE;
 
     return saved;
   }

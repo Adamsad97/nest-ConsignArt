@@ -200,6 +200,7 @@ export class ExhibitionsService {
         currentUser,
         `Added to exhibition: ${exhibition.title}`,
       );
+      saved.artwork.status = ArtworkStatus.ON_LOAN;
     }
 
     return saved;
@@ -246,6 +247,7 @@ export class ExhibitionsService {
             currentUser,
             `Exhibition started: ${exhibition.title}`,
           );
+          ea.artwork.status = ArtworkStatus.ON_LOAN;
         }
       }
     }
@@ -259,6 +261,7 @@ export class ExhibitionsService {
             currentUser,
             `Exhibition closed: ${exhibition.title}`,
           );
+          ea.artwork.status = ArtworkStatus.AVAILABLE;
         }
       }
     }
