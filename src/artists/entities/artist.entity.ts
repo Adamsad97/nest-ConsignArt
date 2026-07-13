@@ -41,6 +41,9 @@ export class Artist {
   @Column({ default: true })
   isActive: boolean;
 
+  @Column({ type: 'date', default: () => 'CURRENT_DATE' })
+  entryDate: Date;
+
   @ManyToOne(() => User, { nullable: false, onDelete: 'RESTRICT' })
   @JoinColumn({ name: 'galleryId' })
   gallery: User;
