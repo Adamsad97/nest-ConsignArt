@@ -15,10 +15,10 @@ import { ArtworksService } from './artworks.service';
 import { CreateArtworkDto } from './dto/create-artwork.dto';
 import { UpdateArtworkDto } from './dto/update-artwork.dto';
 import { ChangeStatusDto } from './dto/change-status.dto';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { OwnershipGuard } from '../common/guards/ownership.guard';
 import { Roles } from '../common/decorators/roles.decorator';
+import { Public } from '../common/decorators/public.decorator';
 import {
   CurrentUser,
   type AuthenticatedUser,
@@ -32,12 +32,14 @@ import { PriceNormalizationPipe } from '../common/pipes/price-normalization.pipe
 export class ArtworksController {
   constructor(private readonly artworksService: ArtworksService) {}
 
+  @Public()
   @Get()
   @ApiOperation({ summary: 'List all artworks (public)' })
   findAll() {
     return this.artworksService.findAll();
   }
 
+  @Public()
   @Get(':id')
   @ApiOperation({ summary: 'Get an artwork by ID (public)' })
   findOne(@Param('id') id: string) {
@@ -46,7 +48,7 @@ export class ArtworksController {
 
   @Post()
   @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(RolesGuard)
   @Roles(Role.GALLERY, Role.ADMIN)
   @ApiOperation({ summary: 'Create a new artwork in the gallery' })
   create(
@@ -60,7 +62,7 @@ export class ArtworksController {
 
   @Patch(':id/status')
   @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard, RolesGuard, OwnershipGuard)
+  @UseGuards(RolesGuard, OwnershipGuard)
   @Roles(Role.GALLERY, Role.ADMIN)
   @ApiOperation({ summary: 'Change artwork status with history tracking' })
   changeStatus(
@@ -73,7 +75,7 @@ export class ArtworksController {
 
   @Patch(':id')
   @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard, RolesGuard, OwnershipGuard)
+  @UseGuards(RolesGuard, OwnershipGuard)
   @Roles(Role.GALLERY, Role.ADMIN)
   @ApiOperation({ summary: 'Update artwork details' })
   update(
@@ -86,7 +88,7 @@ export class ArtworksController {
 
   @Delete(':id')
   @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard, RolesGuard, OwnershipGuard)
+  @UseGuards(RolesGuard, OwnershipGuard)
   @Roles(Role.GALLERY, Role.ADMIN)
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Delete an artwork' })

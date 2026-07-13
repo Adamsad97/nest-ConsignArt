@@ -15,7 +15,6 @@ import { ExhibitionsService } from './exhibitions.service';
 import { CreateExhibitionDto } from './dto/create-exhibition.dto';
 import { UpdateExhibitionDto } from './dto/update-exhibition.dto';
 import { AddArtworkDto } from './dto/add-artwork.dto';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import {
@@ -27,7 +26,7 @@ import { ExhibitionStatus } from './entities/enums/exhibition-status.enum';
 
 @ApiTags('Exhibitions')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(RolesGuard)
 @Controller('exhibitions')
 export class ExhibitionsController {
   constructor(private readonly exhibitionsService: ExhibitionsService) {}
