@@ -1,5 +1,7 @@
 # ConsignArt
 
+[![CI](https://github.com/Adamsad97/nest-ConsignArt-/actions/workflows/ci.yml/badge.svg)](https://github.com/Adamsad97/nest-ConsignArt-/actions/workflows/ci.yml)
+
 ## Prerequisites
 
 - Docker and Docker Compose
