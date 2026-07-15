@@ -72,12 +72,14 @@ Legend: `public` = no token required · `auth` = any authenticated user · role 
 
 ## Sales
 
-| Method | Path                 | Access                 | Success | Errors                                                                 |
-| ------ | -------------------- | ---------------------- | ------- | ---------------------------------------------------------------------- |
-| POST   | `/sales`             | gallery, admin         | 201     | `ARTWORK_ON_LOAN`, `ARTWORK_NOT_AVAILABLE`, `BELOW_RESERVE_PRICE`, 403 |
-| GET    | `/sales`             | gallery, admin, artist | 200     | scoped to caller                                                       |
-| GET    | `/sales/:id`         | gallery, admin, artist | 200     | 403, 404                                                               |
-| GET    | `/sales/:id/invoice` | gallery, admin         | 200     | 403, 404                                                               |
+| Method | Path                 | Access                            | Success | Errors                                                                 |
+| ------ | -------------------- | ---------------------------------- | ------- | ---------------------------------------------------------------------- |
+| POST   | `/sales`             | gallery, admin, collector          | 201     | `ARTWORK_ON_LOAN`, `ARTWORK_NOT_AVAILABLE`, `BELOW_RESERVE_PRICE`, 400 (gallery/admin omitting `buyer`/`buyerContact`), 403 |
+| GET    | `/sales`             | gallery, admin, artist, collector  | 200     | scoped to caller                                                       |
+| GET    | `/sales/:id`         | gallery, admin, artist, collector  | 200     | 403, 404                                                               |
+| GET    | `/sales/:id/invoice` | gallery, admin, collector          | 200     | 403, 404                                                               |
+
+A **collector** buys for themselves: `buyer`/`buyerContact` are optional in the request body and, when omitted, are auto-derived from the collector's own account (`firstName lastName`, `email`). A **gallery/admin** records a sale on behalf of an external buyer and must supply `buyer`/`buyerContact` explicitly. `GET /sales` for a collector is scoped to their own purchases (`buyerAccount.id`); for a gallery, to sales of their own artworks; for an artist, to sales of their own artworks.
 
 ## Reports
 

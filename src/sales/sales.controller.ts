@@ -18,28 +18,31 @@ export class SalesController {
   constructor(private readonly salesService: SalesService) {}
 
   @Post()
-  @Roles(Role.GALLERY, Role.ADMIN)
-  @ApiOperation({ summary: 'Process a sale (atomic transaction)' })
+  @Roles(Role.GALLERY, Role.ADMIN, Role.COLLECTOR)
+  @ApiOperation({
+    summary:
+      'Process a sale (atomic transaction). A collector buys for themselves; a gallery/admin records a sale on behalf of a buyer.',
+  })
   create(@Body() dto: CreateSaleDto, @CurrentUser() user: AuthenticatedUser) {
     return this.salesService.processSale(dto, user);
   }
 
   @Get()
-  @Roles(Role.GALLERY, Role.ADMIN, Role.ARTIST)
+  @Roles(Role.GALLERY, Role.ADMIN, Role.ARTIST, Role.COLLECTOR)
   @ApiOperation({ summary: 'List sales (scoped by role)' })
   findAll(@CurrentUser() user: AuthenticatedUser) {
     return this.salesService.findAll(user);
   }
 
   @Get(':id')
-  @Roles(Role.GALLERY, Role.ADMIN, Role.ARTIST)
+  @Roles(Role.GALLERY, Role.ADMIN, Role.ARTIST, Role.COLLECTOR)
   @ApiOperation({ summary: 'Get a sale by ID' })
   findOne(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
     return this.salesService.findOne(id, user);
   }
 
   @Get(':id/invoice')
-  @Roles(Role.GALLERY, Role.ADMIN)
+  @Roles(Role.GALLERY, Role.ADMIN, Role.COLLECTOR)
   @ApiOperation({ summary: 'Get the invoice for a sale' })
   findInvoice(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
     return this.salesService.findInvoice(id, user);

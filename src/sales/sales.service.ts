@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   ForbiddenException,
+  BadRequestException,
 } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
@@ -76,8 +77,8 @@ export class SalesService {
       }
 
       if (
-        artwork.gallery.id !== currentUser.id &&
-        currentUser.role !== Role.ADMIN
+        currentUser.role === Role.GALLERY &&
+        artwork.gallery.id !== currentUser.id
       ) {
         throw new ForbiddenException(
           'This artwork does not belong to your gallery',
@@ -105,6 +106,26 @@ export class SalesService {
         );
       }
 
+      let buyer = dto.buyer;
+      let buyerContact = dto.buyerContact;
+      let buyerAccount: User | null = null;
+
+      if (currentUser.role === Role.COLLECTOR) {
+        const collector = await manager.findOne(User, {
+          where: { id: currentUser.id },
+        });
+        if (!collector) {
+          throw new ForbiddenException('Collector account not found');
+        }
+        buyer = `${collector.firstName} ${collector.lastName}`;
+        buyerContact = collector.email;
+        buyerAccount = collector;
+      } else if (!buyer || !buyerContact) {
+        throw new BadRequestException(
+          'buyer and buyerContact are required when recording a sale on behalf of a buyer',
+        );
+      }
+
       const commission = this.calculateCommission(dto.salePrice);
 
       const vatRate = 0.2;
@@ -129,16 +150,12 @@ export class SalesService {
       });
       await manager.save(Invoice, invoice);
 
-      const gallery = await manager.findOne(User, {
-        where: { id: currentUser.id },
-      });
-      if (!gallery) {
-        throw new ForbiddenException('Gallery user not found');
-      }
+      const gallery = artwork.gallery;
 
       const sale = manager.create(Sale, {
-        buyer: dto.buyer,
-        buyerContact: dto.buyerContact,
+        buyer,
+        buyerContact,
+        buyerAccount,
         saleDate: dto.saleDate ? new Date(dto.saleDate) : new Date(),
         salePrice: dto.salePrice,
         commissionRate: commission.rate,
@@ -158,8 +175,8 @@ export class SalesService {
         artwork,
         previousStatus,
         newStatus: ArtworkStatus.SOLD,
-        reason: `Sold to ${dto.buyer} for ${dto.salePrice}€`,
-        changedBy: gallery,
+        reason: `Sold to ${buyer} for ${dto.salePrice}€`,
+        changedBy: buyerAccount ?? gallery,
       });
       await manager.save(ArtworkStatusHistory, history);
 
@@ -180,6 +197,12 @@ export class SalesService {
         relations: { artwork: { artist: true }, gallery: true, invoice: true },
       });
     }
+    if (currentUser.role === Role.COLLECTOR) {
+      return this.salesRepository.find({
+        where: { buyerAccount: { id: currentUser.id } },
+        relations: { artwork: { artist: true }, gallery: true, invoice: true },
+      });
+    }
     return this.salesRepository.find({
       where: { gallery: { id: currentUser.id } },
       relations: { artwork: { artist: true }, gallery: true, invoice: true },
@@ -189,12 +212,21 @@ export class SalesService {
   async findOne(id: string, currentUser: AuthenticatedUser): Promise<Sale> {
     const sale = await this.salesRepository.findOne({
       where: { id },
-      relations: { artwork: { artist: true }, gallery: true, invoice: true },
+      relations: {
+        artwork: { artist: true },
+        gallery: true,
+        invoice: true,
+        buyerAccount: true,
+      },
     });
     if (!sale) {
       throw new NotFoundException(`Sale with id ${id} not found`);
     }
-    if (currentUser.role !== Role.ADMIN && sale.gallery.id !== currentUser.id) {
+    const isOwner =
+      currentUser.role === Role.ADMIN ||
+      sale.gallery.id === currentUser.id ||
+      sale.buyerAccount?.id === currentUser.id;
+    if (!isOwner) {
       throw new ForbiddenException('You do not have access to this sale');
     }
     return sale;
