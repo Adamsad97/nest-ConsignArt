@@ -13,6 +13,7 @@ import { ExhibitionsModule } from './exhibitions/exhibitions.module';
 import { LoansModule } from './loans/loans.module';
 import { SalesModule } from './sales/sales.module';
 import { ReportsModule } from './reports/reports.module';
+import { CategoriesModule } from './categories/categories.module';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 
 @Module({
@@ -58,6 +59,7 @@ import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
     LoansModule,
     SalesModule,
     ReportsModule,
+    CategoriesModule,
   ],
   controllers: [AppController],
   providers: [AppService, { provide: APP_GUARD, useClass: JwtAuthGuard }],

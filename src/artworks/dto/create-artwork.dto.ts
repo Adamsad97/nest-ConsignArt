@@ -1,4 +1,5 @@
 import {
+  IsArray,
   IsEnum,
   IsNotEmpty,
   IsNumber,
@@ -75,4 +76,13 @@ export class CreateArtworkDto {
   @IsString()
   @IsOptional()
   imageUrl?: string;
+
+  @ApiPropertyOptional({
+    description: 'UUIDs of the categories to attach to this artwork',
+    type: [String],
+  })
+  @IsUUID('4', { each: true })
+  @IsArray()
+  @IsOptional()
+  categoryIds?: string[];
 }

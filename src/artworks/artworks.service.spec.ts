@@ -3,6 +3,7 @@ import {
   ForbiddenException,
   BadRequestException,
   NotFoundException,
+  ConflictException,
 } from '@nestjs/common';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { ArtworksService } from './artworks.service';
@@ -11,6 +12,7 @@ import { ArtworkStatusHistory } from './entities/artwork-status-history.entity';
 import { ArtworkStatus } from './enums/artwork-status.enum';
 import { ArtistsService } from '../artists/artists.service';
 import { UsersService } from '../users/users.service';
+import { CategoriesService } from '../categories/categories.service';
 import { Role } from '../users/enums/role.enum';
 import { BusinessRuleViolationException } from '../common/exceptions/business-rule-violation.exception';
 
@@ -51,6 +53,9 @@ const mockStatusHistoryRepository = {
 
 const mockArtistsService = { findOne: vi.fn() };
 const mockUsersService = { findOne: vi.fn() };
+const mockCategoriesService = {
+  findByIds: vi.fn(() => Promise.resolve([])),
+};
 
 describe('ArtworksService', () => {
   let service: ArtworksService;
@@ -71,6 +76,7 @@ describe('ArtworksService', () => {
         },
         { provide: ArtistsService, useValue: mockArtistsService },
         { provide: UsersService, useValue: mockUsersService },
+        { provide: CategoriesService, useValue: mockCategoriesService },
       ],
     }).compile();
 
@@ -180,6 +186,78 @@ describe('ArtworksService', () => {
           reason: 'loaned out',
         }),
       );
+    });
+  });
+
+  describe('addCategory', () => {
+    it('throws ForbiddenException when the caller does not own the artwork', async () => {
+      mockArtworksRepository.findOne.mockResolvedValue({
+        ...mockArtwork,
+        categories: [],
+      });
+
+      await expect(
+        service.addCategory('artwork-1', 'category-1', mockOtherGalleryUser),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('throws ConflictException when the category is already assigned', async () => {
+      mockArtworksRepository.findOne.mockResolvedValue({
+        ...mockArtwork,
+        categories: [{ id: 'category-1', name: 'Impressionism' }],
+      });
+
+      await expect(
+        service.addCategory('artwork-1', 'category-1', mockGalleryUser),
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it('attaches the category to the artwork', async () => {
+      mockArtworksRepository.findOne.mockResolvedValue({
+        ...mockArtwork,
+        categories: [],
+      });
+      mockCategoriesService.findByIds.mockResolvedValueOnce([
+        { id: 'category-1', name: 'Impressionism' },
+      ]);
+
+      const result = await service.addCategory(
+        'artwork-1',
+        'category-1',
+        mockGalleryUser,
+      );
+
+      expect(result.categories).toEqual([
+        { id: 'category-1', name: 'Impressionism' },
+      ]);
+    });
+  });
+
+  describe('removeCategory', () => {
+    it('throws ForbiddenException when the caller does not own the artwork', async () => {
+      mockArtworksRepository.findOne.mockResolvedValue({
+        ...mockArtwork,
+        categories: [{ id: 'category-1', name: 'Impressionism' }],
+      });
+
+      await expect(
+        service.removeCategory('artwork-1', 'category-1', mockOtherGalleryUser),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('removes the category from the artwork', async () => {
+      mockArtworksRepository.findOne.mockResolvedValue({
+        ...mockArtwork,
+        categories: [{ id: 'category-1', name: 'Impressionism' }],
+      });
+
+      const result = await service.removeCategory(
+        'artwork-1',
+        'category-1',
+        mockGalleryUser,
+      );
+
+      expect(result.categories).toEqual([]);
     });
   });
 

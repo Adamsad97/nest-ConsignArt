@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   ForbiddenException,
+  BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -46,13 +47,27 @@ export class LoansService {
       );
     }
 
+    if (dto.borrowerGalleryId === currentUser.id) {
+      throw new BadRequestException(
+        'A gallery cannot loan an artwork to itself',
+      );
+    }
+
+    const borrowerGallery = await this.usersService.findOne(
+      dto.borrowerGalleryId,
+    );
+    if (borrowerGallery.role !== Role.GALLERY) {
+      throw new BadRequestException(
+        'The borrowing party must be a gallery account',
+      );
+    }
+
     const gallery = await this.usersService.findOne(currentUser.id);
 
     const loan = this.loansRepository.create({
       artwork,
       gallery,
-      borrower: dto.borrower,
-      borrowerContact: dto.borrowerContact,
+      borrowerGallery,
       purpose: dto.purpose,
       startDate: new Date(dto.startDate),
       expectedReturnDate: new Date(dto.expectedReturnDate),
@@ -65,7 +80,7 @@ export class LoansService {
       dto.artworkId,
       ArtworkStatus.ON_LOAN,
       currentUser,
-      `Loaned to: ${dto.borrower}`,
+      `Loaned to gallery: ${borrowerGallery.firstName} ${borrowerGallery.lastName}`,
     );
     saved.artwork.status = ArtworkStatus.ON_LOAN;
 
@@ -75,19 +90,31 @@ export class LoansService {
   findAll(currentUser: AuthenticatedUser): Promise<Loan[]> {
     if (currentUser.role === Role.ADMIN) {
       return this.loansRepository.find({
-        relations: { artwork: { artist: true }, gallery: true },
+        relations: {
+          artwork: { artist: true },
+          gallery: true,
+          borrowerGallery: true,
+        },
       });
     }
     return this.loansRepository.find({
       where: { gallery: { id: currentUser.id } },
-      relations: { artwork: { artist: true }, gallery: true },
+      relations: {
+        artwork: { artist: true },
+        gallery: true,
+        borrowerGallery: true,
+      },
     });
   }
 
   async findOne(id: string, currentUser: AuthenticatedUser): Promise<Loan> {
     const loan = await this.loansRepository.findOne({
       where: { id },
-      relations: { artwork: { artist: true }, gallery: true },
+      relations: {
+        artwork: { artist: true },
+        gallery: true,
+        borrowerGallery: true,
+      },
     });
     if (!loan) {
       throw new NotFoundException(`Loan with id ${id} not found`);
@@ -116,7 +143,7 @@ export class LoansService {
       loan.artwork.id,
       ArtworkStatus.AVAILABLE,
       currentUser,
-      `Returned from loan to: ${loan.borrower}`,
+      `Returned from loan to gallery: ${loan.borrowerGallery.firstName} ${loan.borrowerGallery.lastName}`,
     );
     saved.artwork.status = ArtworkStatus.AVAILABLE;
 

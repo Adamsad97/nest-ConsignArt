@@ -16,6 +16,7 @@ import { ArtworksService } from './artworks.service';
 import { CreateArtworkDto } from './dto/create-artwork.dto';
 import { UpdateArtworkDto } from './dto/update-artwork.dto';
 import { ChangeStatusDto } from './dto/change-status.dto';
+import { AddCategoryDto } from './dto/add-category.dto';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { OwnershipGuard } from '../common/guards/ownership.guard';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -98,5 +99,31 @@ export class ArtworksController {
   @ApiOperation({ summary: 'Delete an artwork' })
   remove(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
     return this.artworksService.remove(id, user);
+  }
+
+  @Post(':id/categories')
+  @ApiBearerAuth()
+  @UseGuards(RolesGuard, OwnershipGuard)
+  @Roles(Role.GALLERY, Role.ADMIN)
+  @ApiOperation({ summary: 'Attach a category to the artwork' })
+  addCategory(
+    @Param('id') id: string,
+    @Body() dto: AddCategoryDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.artworksService.addCategory(id, dto.categoryId, user);
+  }
+
+  @Delete(':id/categories/:categoryId')
+  @ApiBearerAuth()
+  @UseGuards(RolesGuard, OwnershipGuard)
+  @Roles(Role.GALLERY, Role.ADMIN)
+  @ApiOperation({ summary: 'Remove a category from the artwork' })
+  removeCategory(
+    @Param('id') id: string,
+    @Param('categoryId') categoryId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.artworksService.removeCategory(id, categoryId, user);
   }
 }

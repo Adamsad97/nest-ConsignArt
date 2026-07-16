@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { ForbiddenException } from '@nestjs/common';
+import { ForbiddenException, BadRequestException } from '@nestjs/common';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { LoansService } from './loans.service';
 import { Loan } from './entities/loan.entity';
@@ -75,14 +75,41 @@ describe('LoansService', () => {
       ).rejects.toThrow(BusinessRuleViolationException);
     });
 
+    it('throws BadRequestException when the borrowing gallery is the same as the lender', async () => {
+      mockArtworksService.findOne.mockResolvedValue(artwork);
+
+      await expect(
+        service.create(
+          { artworkId: 'artwork-1', borrowerGalleryId: 'gallery-1' } as any,
+          mockGalleryUser,
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('throws BadRequestException when the borrowing party is not a gallery', async () => {
+      mockArtworksService.findOne.mockResolvedValue(artwork);
+      mockUsersService.findOne.mockResolvedValueOnce({
+        id: 'artist-user-1',
+        role: Role.ARTIST,
+      });
+
+      await expect(
+        service.create(
+          { artworkId: 'artwork-1', borrowerGalleryId: 'artist-user-1' } as any,
+          mockGalleryUser,
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
+
     it('creates the loan and moves the artwork to on_loan', async () => {
       mockArtworksService.findOne.mockResolvedValue(artwork);
-      mockUsersService.findOne.mockResolvedValue(mockGalleryUser);
+      mockUsersService.findOne
+        .mockResolvedValueOnce(mockOtherGalleryUser)
+        .mockResolvedValueOnce(mockGalleryUser);
 
       const dto = {
         artworkId: 'artwork-1',
-        borrower: 'Museum X',
-        borrowerContact: 'contact@museum.com',
+        borrowerGalleryId: 'gallery-2',
         startDate: '2026-01-01',
         expectedReturnDate: '2026-02-01',
       };
@@ -119,7 +146,7 @@ describe('LoansService', () => {
         status: LoanStatus.ACTIVE,
         gallery: { id: 'gallery-1' },
         artwork: { id: 'artwork-1' },
-        borrower: 'Museum X',
+        borrowerGallery: { firstName: 'Museum', lastName: 'X' },
       });
 
       const result = await service.returnLoan('loan-1', mockGalleryUser);

@@ -3,6 +3,7 @@ import {
   NotFoundException,
   ForbiddenException,
   BadRequestException,
+  ConflictException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -13,6 +14,7 @@ import { UpdateArtworkDto } from './dto/update-artwork.dto';
 import { ArtworkStatus } from './enums/artwork-status.enum';
 import { ArtistsService } from '../artists/artists.service';
 import { UsersService } from '../users/users.service';
+import { CategoriesService } from '../categories/categories.service';
 import { AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { Role } from '../users/enums/role.enum';
 import { BusinessRuleViolationException } from '../common/exceptions/business-rule-violation.exception';
@@ -26,6 +28,7 @@ export class ArtworksService {
     private readonly statusHistoryRepository: Repository<ArtworkStatusHistory>,
     private readonly artistsService: ArtistsService,
     private readonly usersService: UsersService,
+    private readonly categoriesService: CategoriesService,
   ) {}
 
   async create(
@@ -44,6 +47,10 @@ export class ArtworksService {
       );
     }
 
+    const categories = await this.categoriesService.findByIds(
+      dto.categoryIds ?? [],
+    );
+
     const artwork = this.artworksRepository.create({
       title: dto.title,
       description: dto.description,
@@ -58,6 +65,7 @@ export class ArtworksService {
       imageUrl: dto.imageUrl,
       artist,
       gallery,
+      categories,
     });
 
     const saved = await this.artworksRepository.save(artwork);
@@ -77,19 +85,69 @@ export class ArtworksService {
 
   findAll(): Promise<Artwork[]> {
     return this.artworksRepository.find({
-      relations: { gallery: true, artist: true },
+      relations: { gallery: true, artist: true, categories: true },
     });
   }
 
   async findOne(id: string): Promise<Artwork> {
     const artwork = await this.artworksRepository.findOne({
       where: { id },
-      relations: { gallery: true, artist: true, statusHistory: true },
+      relations: {
+        gallery: true,
+        artist: true,
+        statusHistory: true,
+        categories: true,
+      },
     });
     if (!artwork) {
       throw new NotFoundException(`Artwork with id ${id} not found`);
     }
     return artwork;
+  }
+
+  async addCategory(
+    artworkId: string,
+    categoryId: string,
+    currentUser: AuthenticatedUser,
+  ): Promise<Artwork> {
+    const artwork = await this.findOne(artworkId);
+
+    if (
+      currentUser.role !== Role.ADMIN &&
+      artwork.gallery.id !== currentUser.id
+    ) {
+      throw new ForbiddenException('You do not own this artwork');
+    }
+
+    if (artwork.categories.some((category) => category.id === categoryId)) {
+      throw new ConflictException(
+        'This category is already assigned to the artwork',
+      );
+    }
+
+    const [category] = await this.categoriesService.findByIds([categoryId]);
+    artwork.categories.push(category);
+    return this.artworksRepository.save(artwork);
+  }
+
+  async removeCategory(
+    artworkId: string,
+    categoryId: string,
+    currentUser: AuthenticatedUser,
+  ): Promise<Artwork> {
+    const artwork = await this.findOne(artworkId);
+
+    if (
+      currentUser.role !== Role.ADMIN &&
+      artwork.gallery.id !== currentUser.id
+    ) {
+      throw new ForbiddenException('You do not own this artwork');
+    }
+
+    artwork.categories = artwork.categories.filter(
+      (category) => category.id !== categoryId,
+    );
+    return this.artworksRepository.save(artwork);
   }
 
   async changeStatus(

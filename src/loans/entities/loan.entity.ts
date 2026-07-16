@@ -17,12 +17,6 @@ export class Loan {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column()
-  borrower: string;
-
-  @Column()
-  borrowerContact: string;
-
   @Column({ type: 'text', nullable: true })
   purpose: string;
 
@@ -53,6 +47,10 @@ export class Loan {
   @ManyToOne(() => User, { nullable: false, onDelete: 'RESTRICT' })
   @JoinColumn({ name: 'galleryId' })
   gallery: User;
+
+  @ManyToOne(() => User, { nullable: false, onDelete: 'RESTRICT' })
+  @JoinColumn({ name: 'borrowerGalleryId' })
+  borrowerGallery: User;
 
   @CreateDateColumn()
   createdAt: Date;
