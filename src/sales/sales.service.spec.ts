@@ -155,6 +155,45 @@ describe('SalesService', () => {
       }
     });
 
+    it('throws BusinessRuleViolationException when artwork is already SOLD', async () => {
+      mockQueryBuilder.getOne.mockResolvedValueOnce({
+        ...mockArtwork,
+        status: ArtworkStatus.SOLD,
+      });
+
+      await expect(
+        service.processSale(
+          {
+            artworkId: 'artwork-1',
+            buyer: 'Jean',
+            buyerContact: 'j@mail.fr',
+            salePrice: 6000,
+          },
+          mockGalleryUser,
+        ),
+      ).rejects.toThrow(BusinessRuleViolationException);
+
+      mockQueryBuilder.getOne.mockResolvedValueOnce({
+        ...mockArtwork,
+        status: ArtworkStatus.SOLD,
+      });
+      try {
+        await service.processSale(
+          {
+            artworkId: 'artwork-1',
+            buyer: 'Jean',
+            buyerContact: 'j@mail.fr',
+            salePrice: 6000,
+          },
+          mockGalleryUser,
+        );
+      } catch (e) {
+        if (e instanceof BusinessRuleViolationException) {
+          expect(e.rule).toBe('ARTWORK_NOT_AVAILABLE');
+        }
+      }
+    });
+
     it('throws BusinessRuleViolationException when price is below reserve', async () => {
       mockQueryBuilder.getOne.mockResolvedValueOnce({
         ...mockArtwork,

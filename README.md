@@ -36,6 +36,10 @@ users ─┬─< artists ─< artworks ─┬─< artwork_status_history
 artists ─< artist_statements
 ```
 
+## Git conventions
+
+Commits follow [Conventional Commits](https://www.conventionalcommits.org/) (`feat(scope): summary`, `fix(scope): summary`, `docs: ...`, `test: ...`, `ci: ...`).
+
 ## Prerequisites
 
 - Docker and Docker Compose
