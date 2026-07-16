@@ -185,13 +185,14 @@ export class ExhibitionsService {
       );
     }
 
-    const ea = this.exhibitionArtworkRepository.create({
+    const exhibitionArtwork = this.exhibitionArtworkRepository.create({
       exhibition,
       artwork,
       displayOrder: dto.displayOrder,
       notes: dto.notes,
     });
-    const saved = await this.exhibitionArtworkRepository.save(ea);
+    const saved =
+      await this.exhibitionArtworkRepository.save(exhibitionArtwork);
 
     if (exhibition.status === ExhibitionStatus.ONGOING) {
       await this.artworksService.changeStatus(
@@ -213,14 +214,14 @@ export class ExhibitionsService {
   ): Promise<void> {
     await this.findOne(exhibitionId, currentUser);
 
-    const ea = await this.exhibitionArtworkRepository.findOne({
+    const exhibitionArtwork = await this.exhibitionArtworkRepository.findOne({
       where: { exhibition: { id: exhibitionId }, artwork: { id: artworkId } },
     });
-    if (!ea) {
+    if (!exhibitionArtwork) {
       throw new NotFoundException('Artwork not found in this exhibition');
     }
 
-    await this.exhibitionArtworkRepository.remove(ea);
+    await this.exhibitionArtworkRepository.remove(exhibitionArtwork);
   }
 
   async updateStatus(
@@ -239,29 +240,29 @@ export class ExhibitionsService {
         );
       }
 
-      for (const ea of exhibition.exhibitionArtworks) {
-        if (ea.artwork.status === ArtworkStatus.AVAILABLE) {
+      for (const exhibitionArtwork of exhibition.exhibitionArtworks) {
+        if (exhibitionArtwork.artwork.status === ArtworkStatus.AVAILABLE) {
           await this.artworksService.changeStatus(
-            ea.artwork.id,
+            exhibitionArtwork.artwork.id,
             ArtworkStatus.ON_LOAN,
             currentUser,
             `Exhibition started: ${exhibition.title}`,
           );
-          ea.artwork.status = ArtworkStatus.ON_LOAN;
+          exhibitionArtwork.artwork.status = ArtworkStatus.ON_LOAN;
         }
       }
     }
 
     if (status === ExhibitionStatus.CLOSED) {
-      for (const ea of exhibition.exhibitionArtworks ?? []) {
-        if (ea.artwork.status === ArtworkStatus.ON_LOAN) {
+      for (const exhibitionArtwork of exhibition.exhibitionArtworks ?? []) {
+        if (exhibitionArtwork.artwork.status === ArtworkStatus.ON_LOAN) {
           await this.artworksService.changeStatus(
-            ea.artwork.id,
+            exhibitionArtwork.artwork.id,
             ArtworkStatus.AVAILABLE,
             currentUser,
             `Exhibition closed: ${exhibition.title}`,
           );
-          ea.artwork.status = ArtworkStatus.AVAILABLE;
+          exhibitionArtwork.artwork.status = ArtworkStatus.AVAILABLE;
         }
       }
     }

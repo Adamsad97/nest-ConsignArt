@@ -14,9 +14,9 @@ export class GlobalExceptionFilter implements ExceptionFilter {
   private readonly logger = new Logger(GlobalExceptionFilter.name);
 
   catch(exception: unknown, host: ArgumentsHost): void {
-    const ctx = host.switchToHttp();
-    const response = ctx.getResponse<Response>();
-    const request = ctx.getRequest<Request>();
+    const httpContext = host.switchToHttp();
+    const response = httpContext.getResponse<Response>();
+    const request = httpContext.getRequest<Request>();
 
     let status = HttpStatus.INTERNAL_SERVER_ERROR;
     let message = 'Internal server error';
@@ -31,9 +31,14 @@ export class GlobalExceptionFilter implements ExceptionFilter {
         typeof exceptionResponse === 'object' &&
         exceptionResponse !== null
       ) {
-        const resp = exceptionResponse as Record<string, unknown>;
-        message = (resp['message'] as string) ?? message;
-        error = (resp['error'] as string) ?? exception.constructor.name;
+        const exceptionResponseObject = exceptionResponse as Record<
+          string,
+          unknown
+        >;
+        message = (exceptionResponseObject['message'] as string) ?? message;
+        error =
+          (exceptionResponseObject['error'] as string) ??
+          exception.constructor.name;
       }
     } else if (exception instanceof QueryFailedError) {
       status = HttpStatus.CONFLICT;

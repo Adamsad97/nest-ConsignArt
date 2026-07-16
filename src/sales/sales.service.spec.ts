@@ -148,9 +148,9 @@ describe('SalesService', () => {
           },
           mockGalleryUser,
         );
-      } catch (e) {
-        if (e instanceof BusinessRuleViolationException) {
-          expect(e.rule).toBe('ARTWORK_ON_LOAN');
+      } catch (error) {
+        if (error instanceof BusinessRuleViolationException) {
+          expect(error.rule).toBe('ARTWORK_ON_LOAN');
         }
       }
     });
@@ -187,9 +187,9 @@ describe('SalesService', () => {
           },
           mockGalleryUser,
         );
-      } catch (e) {
-        if (e instanceof BusinessRuleViolationException) {
-          expect(e.rule).toBe('ARTWORK_NOT_AVAILABLE');
+      } catch (error) {
+        if (error instanceof BusinessRuleViolationException) {
+          expect(error.rule).toBe('ARTWORK_NOT_AVAILABLE');
         }
       }
     });

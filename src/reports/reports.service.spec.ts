@@ -81,7 +81,7 @@ describe('ReportsService', () => {
       });
       mockSalesRepository.find.mockResolvedValue([
         {
-          id: 's-1',
+          id: 'sale-1',
           salePrice: 1000,
           galleryCommission: 400,
           artistAmount: 600,
@@ -89,7 +89,7 @@ describe('ReportsService', () => {
           artwork: { title: 'Piece A' },
         },
         {
-          id: 's-2',
+          id: 'sale-2',
           salePrice: 2000,
           galleryCommission: 800,
           artistAmount: 1200,
@@ -122,7 +122,7 @@ describe('ReportsService', () => {
           salePrice: 1000,
           saleDate: '2026-01-10',
           artwork: {
-            artist: { id: 'a-1', firstName: 'Pablo', lastName: 'Picasso' },
+            artist: { id: 'artist-1', firstName: 'Pablo', lastName: 'Picasso' },
           },
         },
         {
@@ -130,28 +130,28 @@ describe('ReportsService', () => {
           salePrice: 2000,
           saleDate: '2026-02-15',
           artwork: {
-            artist: { id: 'a-1', firstName: 'Pablo', lastName: 'Picasso' },
+            artist: { id: 'artist-1', firstName: 'Pablo', lastName: 'Picasso' },
           },
         },
       ]);
       mockArtworksService.findAll.mockResolvedValue([
         {
-          id: 'aw-1',
+          id: 'artwork-1',
           gallery: { id: 'gallery-1' },
           status: ArtworkStatus.SOLD,
         },
         {
-          id: 'aw-2',
+          id: 'artwork-2',
           gallery: { id: 'gallery-1' },
           status: ArtworkStatus.SOLD,
         },
         {
-          id: 'aw-3',
+          id: 'artwork-3',
           gallery: { id: 'gallery-1' },
           status: ArtworkStatus.AVAILABLE,
         },
         {
-          id: 'aw-4',
+          id: 'artwork-4',
           gallery: { id: 'gallery-2' },
           status: ArtworkStatus.SOLD,
         },
@@ -180,13 +180,17 @@ describe('ReportsService', () => {
       ]);
       mockArtworksService.findAll.mockResolvedValue([
         {
-          id: 'aw-1',
+          id: 'artwork-1',
           artist: { id: 'artist-1' },
           status: ArtworkStatus.AVAILABLE,
         },
-        { id: 'aw-2', artist: { id: 'artist-1' }, status: ArtworkStatus.SOLD },
         {
-          id: 'aw-3',
+          id: 'artwork-2',
+          artist: { id: 'artist-1' },
+          status: ArtworkStatus.SOLD,
+        },
+        {
+          id: 'artwork-3',
           artist: { id: 'artist-2' },
           status: ArtworkStatus.AVAILABLE,
         },
@@ -212,8 +216,8 @@ describe('ReportsService', () => {
         { salePrice: 2000, galleryCommission: 800 },
       ]);
       mockUsersService.findAll.mockResolvedValue([
-        { id: 'u-1', isActive: true },
-        { id: 'u-2', isActive: false },
+        { id: 'user-1', isActive: true },
+        { id: 'user-2', isActive: false },
       ]);
 
       const result = await service.getAdminDashboard(mockGalleryUser);

@@ -31,9 +31,11 @@ const mockConfigService = {
 
 const mockRefreshTokenRepository = {
   find: vi.fn(),
-  save: vi.fn((rt: any) => Promise.resolve({ id: 'rt-1', ...rt })),
+  save: vi.fn((refreshToken: any) =>
+    Promise.resolve({ id: 'refresh-token-1', ...refreshToken }),
+  ),
   update: vi.fn(),
-  create: vi.fn((rt: any) => rt),
+  create: vi.fn((refreshToken: any) => refreshToken),
 };
 
 describe('AuthService', () => {
@@ -60,7 +62,7 @@ describe('AuthService', () => {
 
   describe('register', () => {
     it('throws ConflictException when email already exists', async () => {
-      mockUsersService.findByEmail.mockResolvedValue({ id: 'u-1' });
+      mockUsersService.findByEmail.mockResolvedValue({ id: 'user-1' });
 
       await expect(
         service.register({
@@ -76,7 +78,7 @@ describe('AuthService', () => {
     it('creates gallery accounts as inactive', async () => {
       mockUsersService.findByEmail.mockResolvedValue(null);
       mockUsersService.create.mockImplementation((data: any) =>
-        Promise.resolve({ id: 'u-1', ...data }),
+        Promise.resolve({ id: 'user-1', ...data }),
       );
 
       const result = await service.register({
@@ -96,7 +98,7 @@ describe('AuthService', () => {
     it('creates non-gallery accounts as active', async () => {
       mockUsersService.findByEmail.mockResolvedValue(null);
       mockUsersService.create.mockImplementation((data: any) =>
-        Promise.resolve({ id: 'u-2', ...data }),
+        Promise.resolve({ id: 'user-2', ...data }),
       );
 
       await service.register({
@@ -125,45 +127,45 @@ describe('AuthService', () => {
     it('throws UnauthorizedException when password is wrong', async () => {
       const hashed = await bcrypt.hash('correct-password', 10);
       mockUsersService.findByEmail.mockResolvedValue({
-        id: 'u-1',
-        email: 'a@test.com',
+        id: 'user-1',
+        email: 'user@test.com',
         password: hashed,
         isActive: true,
         role: Role.COLLECTOR,
       });
 
       await expect(
-        service.login({ email: 'a@test.com', password: 'wrong-password' }),
+        service.login({ email: 'user@test.com', password: 'wrong-password' }),
       ).rejects.toThrow(UnauthorizedException);
     });
 
     it('throws UnauthorizedException when account is not active', async () => {
       const hashed = await bcrypt.hash('correct-password', 10);
       mockUsersService.findByEmail.mockResolvedValue({
-        id: 'u-1',
-        email: 'a@test.com',
+        id: 'user-1',
+        email: 'user@test.com',
         password: hashed,
         isActive: false,
         role: Role.GALLERY,
       });
 
       await expect(
-        service.login({ email: 'a@test.com', password: 'correct-password' }),
+        service.login({ email: 'user@test.com', password: 'correct-password' }),
       ).rejects.toThrow(UnauthorizedException);
     });
 
     it('returns a token pair on valid credentials', async () => {
       const hashed = await bcrypt.hash('correct-password', 10);
       mockUsersService.findByEmail.mockResolvedValue({
-        id: 'u-1',
-        email: 'a@test.com',
+        id: 'user-1',
+        email: 'user@test.com',
         password: hashed,
         isActive: true,
         role: Role.COLLECTOR,
       });
 
       const result = await service.login({
-        email: 'a@test.com',
+        email: 'user@test.com',
         password: 'correct-password',
       });
 
@@ -191,11 +193,11 @@ describe('AuthService', () => {
 
       mockRefreshTokenRepository.find.mockResolvedValue([
         {
-          id: 'rt-1',
+          id: 'refresh-token-1',
           tokenHash,
           isRevoked: false,
           expiresAt: yesterday,
-          user: { id: 'u-1' },
+          user: { id: 'user-1' },
         },
       ]);
 
@@ -209,11 +211,11 @@ describe('AuthService', () => {
       tomorrow.setDate(tomorrow.getDate() + 1);
 
       const storedToken = {
-        id: 'rt-1',
+        id: 'refresh-token-1',
         tokenHash,
         isRevoked: false,
         expiresAt: tomorrow,
-        user: { id: 'u-1', email: 'a@test.com', role: Role.COLLECTOR },
+        user: { id: 'user-1', email: 'user@test.com', role: Role.COLLECTOR },
       };
       mockRefreshTokenRepository.find.mockResolvedValue([storedToken]);
 
@@ -227,10 +229,10 @@ describe('AuthService', () => {
 
   describe('logout', () => {
     it('revokes all active refresh tokens for the user', async () => {
-      await service.logout('u-1');
+      await service.logout('user-1');
 
       expect(mockRefreshTokenRepository.update).toHaveBeenCalledWith(
-        { user: { id: 'u-1' }, isRevoked: false },
+        { user: { id: 'user-1' }, isRevoked: false },
         { isRevoked: true },
       );
     });

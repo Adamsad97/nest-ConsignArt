@@ -30,7 +30,7 @@ const mockExhibitionsRepository = {
 };
 
 const mockExhibitionArtworkRepository = {
-  create: vi.fn((data: any) => ({ ...data, id: 'ea-1' })),
+  create: vi.fn((data: any) => ({ ...data, id: 'exhibition-artwork-1' })),
   save: vi.fn((data: any) => Promise.resolve(data)),
   findOne: vi.fn(),
   remove: vi.fn(),

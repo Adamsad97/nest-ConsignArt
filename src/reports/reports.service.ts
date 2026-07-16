@@ -43,22 +43,25 @@ export class ReportsService {
     });
 
     const totalSaleAmount = sales.reduce(
-      (sum, s) => sum + Number(s.salePrice),
+      (sum, sale) => sum + Number(sale.salePrice),
       0,
     );
     const totalCommission = sales.reduce(
-      (sum, s) => sum + Number(s.galleryCommission),
+      (sum, sale) => sum + Number(sale.galleryCommission),
       0,
     );
-    const netAmount = sales.reduce((sum, s) => sum + Number(s.artistAmount), 0);
+    const netAmount = sales.reduce(
+      (sum, sale) => sum + Number(sale.artistAmount),
+      0,
+    );
 
-    const items = sales.map((s) => ({
-      saleId: s.id,
-      artworkTitle: s.artwork.title,
-      saleDate: s.saleDate,
-      salePrice: s.salePrice,
-      commission: s.galleryCommission,
-      net: s.artistAmount,
+    const items = sales.map((sale) => ({
+      saleId: sale.id,
+      artworkTitle: sale.artwork.title,
+      saleDate: sale.saleDate,
+      salePrice: sale.salePrice,
+      commission: sale.galleryCommission,
+      net: sale.artistAmount,
     }));
 
     const year = periodStart.getFullYear();
@@ -99,7 +102,7 @@ export class ReportsService {
     });
 
     const totalRevenue = salesData.reduce(
-      (sum, s) => sum + Number(s.galleryCommission),
+      (sum, sale) => sum + Number(sale.galleryCommission),
       0,
     );
 
@@ -135,7 +138,10 @@ export class ReportsService {
     }
 
     const topArtists = Array.from(artistSalesMap.values())
-      .sort((a, b) => b.revenue - a.revenue)
+      .sort(
+        (firstArtistStats, secondArtistStats) =>
+          secondArtistStats.revenue - firstArtistStats.revenue,
+      )
       .slice(0, 5);
 
     const monthlySales = Array.from(monthlySalesMap.entries())
@@ -144,13 +150,15 @@ export class ReportsService {
         artworksSold: data.artworksSold,
         revenue: Math.round(data.revenue * 100) / 100,
       }))
-      .sort((a, b) => a.month.localeCompare(b.month));
+      .sort((firstMonthEntry, secondMonthEntry) =>
+        firstMonthEntry.month.localeCompare(secondMonthEntry.month),
+      );
 
     const galleryArtworks = (await this.artworksService.findAll()).filter(
-      (a) => a.gallery?.id === galleryId,
+      (artwork) => artwork.gallery?.id === galleryId,
     );
     const soldCount = galleryArtworks.filter(
-      (a) => a.status === ArtworkStatus.SOLD,
+      (artwork) => artwork.status === ArtworkStatus.SOLD,
     ).length;
     const turnoverRate =
       galleryArtworks.length > 0
@@ -174,17 +182,19 @@ export class ReportsService {
 
     const totalSales = salesData.length;
     const totalEarnings = salesData.reduce(
-      (sum, s) => sum + Number(s.artistAmount),
+      (sum, sale) => sum + Number(sale.artistAmount),
       0,
     );
     const totalCommissionPaid = salesData.reduce(
-      (sum, s) => sum + Number(s.galleryCommission),
+      (sum, sale) => sum + Number(sale.galleryCommission),
       0,
     );
 
     const allArtworks = await this.artworksService.findAll();
     const availableArtworks = allArtworks.filter(
-      (a) => a.artist?.id === artistId && a.status === ArtworkStatus.AVAILABLE,
+      (artwork) =>
+        artwork.artist?.id === artistId &&
+        artwork.status === ArtworkStatus.AVAILABLE,
     );
 
     return {
@@ -199,18 +209,18 @@ export class ReportsService {
     const totalSales = await this.salesRepository.count();
     const allSales = await this.salesRepository.find();
     const totalVolume = allSales.reduce(
-      (sum, s) => sum + Number(s.salePrice),
+      (sum, sale) => sum + Number(sale.salePrice),
       0,
     );
     const totalCommissions = allSales.reduce(
-      (sum, s) => sum + Number(s.galleryCommission),
+      (sum, sale) => sum + Number(sale.galleryCommission),
       0,
     );
     const totalUsers = await this.usersService.findAll();
 
     return {
       totalUsers: totalUsers.length,
-      activeUsers: totalUsers.filter((u) => u.isActive).length,
+      activeUsers: totalUsers.filter((user) => user.isActive).length,
       totalSales,
       totalVolume: Math.round(totalVolume * 100) / 100,
       totalCommissions: Math.round(totalCommissions * 100) / 100,

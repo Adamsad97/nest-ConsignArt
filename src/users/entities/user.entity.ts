@@ -38,7 +38,7 @@ export class User {
   @OneToMany(() => Artwork, (artwork) => artwork.gallery)
   artworks: Artwork[];
 
-  @OneToMany(() => RefreshToken, (rt) => rt.user)
+  @OneToMany(() => RefreshToken, (refreshToken) => refreshToken.user)
   refreshTokens: RefreshToken[];
 
   @CreateDateColumn()

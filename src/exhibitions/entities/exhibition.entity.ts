@@ -46,7 +46,11 @@ export class Exhibition {
   @JoinColumn({ name: 'galleryId' })
   gallery: User;
 
-  @OneToMany(() => ExhibitionArtwork, (ea) => ea.exhibition, { cascade: true })
+  @OneToMany(
+    () => ExhibitionArtwork,
+    (exhibitionArtwork) => exhibitionArtwork.exhibition,
+    { cascade: true },
+  )
   exhibitionArtworks: ExhibitionArtwork[];
 
   @CreateDateColumn()

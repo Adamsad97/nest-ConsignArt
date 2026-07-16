@@ -5,9 +5,9 @@ import { BusinessRuleViolationException } from '../exceptions/business-rule-viol
 @Catch(BusinessRuleViolationException)
 export class BusinessRuleViolationFilter implements ExceptionFilter {
   catch(exception: BusinessRuleViolationException, host: ArgumentsHost): void {
-    const ctx = host.switchToHttp();
-    const response = ctx.getResponse<Response>();
-    const request = ctx.getRequest<Request>();
+    const httpContext = host.switchToHttp();
+    const response = httpContext.getResponse<Response>();
+    const request = httpContext.getRequest<Request>();
 
     response.status(exception.getStatus()).json({
       statusCode: exception.getStatus(),
