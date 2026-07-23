@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Between, Repository } from 'typeorm';
 import { ArtistStatement } from './entities/artist-statement.entity';
@@ -8,6 +12,7 @@ import { AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { UsersService } from '../users/users.service';
 import { ArtworksService } from '../artworks/artworks.service';
 import { ArtworkStatus } from '../artworks/enums/artwork-status.enum';
+import { Role } from '../users/enums/role.enum';
 
 @Injectable()
 export class ReportsService {
@@ -22,17 +27,46 @@ export class ReportsService {
     private readonly artworksService: ArtworksService,
   ) {}
 
+  /**
+   * Loads the artist and enforces that the caller is allowed to see its
+   * reports: the artist themself, their gallery, or an admin. Reports carry
+   * financial data (earnings, commissions), so this is checked independently
+   * of route-level @Roles() on every artist-scoped report endpoint.
+   */
+  private async assertArtistAccess(
+    artistId: string,
+    currentUser: AuthenticatedUser,
+  ): Promise<Artist> {
+    const artist = await this.artistsRepository.findOne({
+      where: { id: artistId },
+      relations: { gallery: true, user: true },
+    });
+    if (!artist) {
+      throw new NotFoundException(`Artist ${artistId} not found`);
+    }
+
+    const hasAccess =
+      currentUser.role === Role.ADMIN ||
+      (currentUser.role === Role.GALLERY &&
+        artist.gallery.id === currentUser.id) ||
+      (currentUser.role === Role.ARTIST && artist.user?.id === currentUser.id);
+
+    if (!hasAccess) {
+      throw new ForbiddenException(
+        "You do not have access to this artist's reports",
+      );
+    }
+
+    return artist;
+  }
+
   async generateArtistStatement(
     artistId: string,
     periodStart: Date,
     periodEnd: Date,
     currentUser: AuthenticatedUser,
   ): Promise<ArtistStatement> {
-    const artist = await this.artistsRepository.findOne({
-      where: { id: artistId },
-      relations: { gallery: true },
-    });
-    if (!artist) throw new NotFoundException(`Artist ${artistId} not found`);
+    const artist = await this.assertArtistAccess(artistId, currentUser);
 
     const sales = await this.salesRepository.find({
       where: {
@@ -101,6 +135,9 @@ export class ReportsService {
       relations: { artwork: { artist: true } },
     });
 
+    // The gallery never owns the artwork it sells on consignment, so its
+    // actual revenue is the commission it keeps, not the gross sale price.
+    // `monthlySales[].revenue` below uses the same basis for consistency.
     const totalRevenue = salesData.reduce(
       (sum, sale) => sum + Number(sale.galleryCommission),
       0,
@@ -133,7 +170,7 @@ export class ReportsService {
         revenue: 0,
       };
       monthEntry.artworksSold++;
-      monthEntry.revenue += Number(sale.salePrice);
+      monthEntry.revenue += Number(sale.galleryCommission);
       monthlySalesMap.set(month, monthEntry);
     }
 
@@ -174,7 +211,9 @@ export class ReportsService {
     };
   }
 
-  async getArtistDashboard(artistId: string, _currentUser: AuthenticatedUser) {
+  async getArtistDashboard(artistId: string, currentUser: AuthenticatedUser) {
+    await this.assertArtistAccess(artistId, currentUser);
+
     const salesData = await this.salesRepository.find({
       where: { artwork: { artist: { id: artistId } } },
       relations: { artwork: true },
@@ -227,7 +266,12 @@ export class ReportsService {
     };
   }
 
-  findStatementsByArtist(artistId: string): Promise<ArtistStatement[]> {
+  async findStatementsByArtist(
+    artistId: string,
+    currentUser: AuthenticatedUser,
+  ): Promise<ArtistStatement[]> {
+    await this.assertArtistAccess(artistId, currentUser);
+
     return this.statementsRepository.find({
       where: { artist: { id: artistId } },
       relations: { artist: true, gallery: true },

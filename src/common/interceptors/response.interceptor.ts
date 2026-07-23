@@ -11,9 +11,9 @@ import { Request, Response } from 'express';
 export interface ApiResponse<T> {
   data: T | null;
   meta: {
-    timestamp: string;
     path: string;
   };
+  timestamp: string;
   statusCode: number;
 }
 
@@ -33,9 +33,9 @@ export class ResponseInterceptor<T> implements NestInterceptor<
       map((data: T) => ({
         data: data ?? null,
         meta: {
-          timestamp: new Date().toISOString(),
           path: request.url,
         },
+        timestamp: new Date().toISOString(),
         statusCode: response.statusCode,
       })),
     );

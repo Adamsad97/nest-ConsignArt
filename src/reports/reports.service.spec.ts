@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { NotFoundException } from '@nestjs/common';
+import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { ReportsService } from './reports.service';
 import { ArtistStatement } from './entities/artist-statement.entity';
@@ -14,6 +14,18 @@ const mockGalleryUser = {
   id: 'gallery-1',
   email: 'g@test.com',
   role: Role.GALLERY,
+};
+
+const mockOtherGalleryUser = {
+  id: 'gallery-2',
+  email: 'other@test.com',
+  role: Role.GALLERY,
+};
+
+const mockArtistUser = {
+  id: 'artist-user-1',
+  email: 'artist@test.com',
+  role: Role.ARTIST,
 };
 
 const mockStatementsRepository = {
@@ -74,10 +86,28 @@ describe('ReportsService', () => {
       ).rejects.toThrow(NotFoundException);
     });
 
+    it('throws ForbiddenException when the caller is a different gallery', async () => {
+      mockArtistsRepository.findOne.mockResolvedValue({
+        id: 'artist-1',
+        gallery: { id: 'gallery-1' },
+        user: null,
+      });
+
+      await expect(
+        service.generateArtistStatement(
+          'artist-1',
+          new Date('2026-01-01'),
+          new Date('2026-01-31'),
+          mockOtherGalleryUser,
+        ),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
     it('aggregates sales into a statement for the period', async () => {
       mockArtistsRepository.findOne.mockResolvedValue({
         id: 'artist-1',
         gallery: { id: 'gallery-1' },
+        user: null,
       });
       mockSalesRepository.find.mockResolvedValue([
         {
@@ -165,15 +195,50 @@ describe('ReportsService', () => {
         { name: 'Pablo Picasso', count: 2, revenue: 1200 },
       ]);
       expect(result.monthlySales).toEqual([
-        { month: '2026-01', artworksSold: 1, revenue: 1000 },
-        { month: '2026-02', artworksSold: 1, revenue: 2000 },
+        { month: '2026-01', artworksSold: 1, revenue: 400 },
+        { month: '2026-02', artworksSold: 1, revenue: 800 },
       ]);
       expect(result.turnoverRate).toBeCloseTo(66.67, 1);
     });
   });
 
   describe('getArtistDashboard', () => {
+    it('throws ForbiddenException when the caller is an unrelated artist', async () => {
+      mockArtistsRepository.findOne.mockResolvedValue({
+        id: 'artist-1',
+        gallery: { id: 'gallery-1' },
+        user: { id: 'artist-user-1' },
+      });
+
+      await expect(
+        service.getArtistDashboard('artist-1', {
+          id: 'artist-user-2',
+          email: 'other-artist@test.com',
+          role: Role.ARTIST,
+        }),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('allows the linked artist user to view their own dashboard', async () => {
+      mockArtistsRepository.findOne.mockResolvedValue({
+        id: 'artist-1',
+        gallery: { id: 'gallery-1' },
+        user: { id: 'artist-user-1' },
+      });
+      mockSalesRepository.find.mockResolvedValue([]);
+      mockArtworksService.findAll.mockResolvedValue([]);
+
+      await expect(
+        service.getArtistDashboard('artist-1', mockArtistUser),
+      ).resolves.toBeDefined();
+    });
+
     it('sums earnings and counts available artworks for the artist', async () => {
+      mockArtistsRepository.findOne.mockResolvedValue({
+        id: 'artist-1',
+        gallery: { id: 'gallery-1' },
+        user: null,
+      });
       mockSalesRepository.find.mockResolvedValue([
         { artistAmount: 600, galleryCommission: 400 },
         { artistAmount: 1200, galleryCommission: 800 },

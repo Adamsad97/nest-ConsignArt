@@ -50,8 +50,11 @@ export class ReportsController {
   @Get('artist-statements/artist/:artistId')
   @Roles(Role.GALLERY, Role.ADMIN, Role.ARTIST)
   @ApiOperation({ summary: 'List statements for an artist' })
-  findStatements(@Param('artistId') artistId: string) {
-    return this.reportsService.findStatementsByArtist(artistId);
+  findStatements(
+    @Param('artistId') artistId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.reportsService.findStatementsByArtist(artistId, user);
   }
 
   @Get('dashboard/gallery')

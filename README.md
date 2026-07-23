@@ -6,11 +6,11 @@ B2B REST API for art galleries to manage artwork consignment: an artist entrusts
 
 ## Features
 
-- **Auth** — JWT access + refresh tokens, bcrypt, admin-gated gallery activation
+- **Auth** — JWT access + refresh tokens, bcrypt, admin-gated gallery activation. Admin accounts can't be self-registered (only `gallery`/`artist`/`collector` are open at signup) — the first admin is bootstrapped with `npm run seed:admin`
 - **Artists** — gallery-owned catalog, admin-only transfer between galleries
 - **Artworks** — consignment lifecycle (`available` → `on_loan` → `sold`/`returned`), full status history, reserve price enforcement, 50-active-artworks-per-artist limit
 - **Exhibitions & loans** — artwork availability automatically tracked
-- **Sales** — atomic transaction, tiered commission (40/35/30%), invoicing
+- **Sales** — atomic transaction (row-level lock), tiered commission (40/35/30%), invoice + artist statement generated automatically for every sale
 - **Reports** — dashboards for gallery, artist and admin
 
 ## Technical choices
@@ -20,6 +20,7 @@ B2B REST API for art galleries to manage artwork consignment: an artist entrusts
 | PostgreSQL over SQLite | Row-level locking needed for the sale transaction, relational integrity across 11 tables |
 | JWT access + refresh | Stateless access; refresh tokens stored hashed and revocable |
 | Vitest | Faster than Jest for this project size, native ESM/TS support via SWC |
+| Admin bootstrapped via seed script, not public signup | Self-registering as `admin` would let anyone bypass the gallery-validation workflow entirely |
 
 ## Database schema
 
@@ -75,7 +76,7 @@ Starts all three services in one command:
 
 The database schema is created automatically on first boot (development mode).
 
-Other useful commands: `docker compose up -d` (background), `docker compose logs -f api`. See step 8 to stop and clean up.
+Other useful commands: `docker compose up -d` (background), `docker compose logs -f api`. See step 9 to stop and clean up.
 
 ## 4. Database migrations (optional)
 
@@ -87,24 +88,34 @@ npm run migration:generate   # generate a migration from entity changes
 npm run migration:revert     # roll back the last migration
 ```
 
-## 5. Interact with the API
+## 5. Create the first admin account
+
+Admin accounts can't be created through `POST /auth/register` (only `gallery`, `artist` and `collector` can self-register — see [Technical choices](#technical-choices)). Bootstrap the first admin from `ADMIN_EMAIL`/`ADMIN_PASSWORD` in your `.env`:
+
+```bash
+npm run seed:admin
+```
+
+Safe to re-run: it's a no-op if that email already has an account.
+
+## 6. Interact with the API
 
 All routes are prefixed with `/api/v1`. Explore and test every endpoint interactively via Swagger: **http://localhost:3000/api/docs**
 
-Typical flow: register a gallery (`POST /auth/register`) → an admin activates it (`PATCH /users/:id/activate`) → the gallery logs in (`POST /auth/login`), registers an artist (`POST /artists`) and consigns an artwork (`POST /artworks`) → a sale is recorded (`POST /sales`) → dashboards are available under `GET /reports/dashboard/*`.
+Typical flow: register a gallery (`POST /auth/register`) → log in as the seeded admin (`POST /auth/login`) and activate it (`PATCH /users/:id/activate`) → the gallery logs in (`POST /auth/login`), registers an artist (`POST /artists`) and consigns an artwork (`POST /artworks`) → a sale is recorded (`POST /sales`), which also generates an invoice and an artist statement → dashboards are available under `GET /reports/dashboard/*`.
 
-## 6. Inspect the data
+## 7. Inspect the data
 
 Open **pgAdmin** at http://localhost:5050 (`admin@consignart.com` / `admin`), add a server pointing to host `db`, port `5432`, using the credentials from `.env` — or connect any SQL client to `localhost:5434` directly.
 
-## 7. Run tests
+## 8. Run tests
 
 ```bash
 npm test          # unit tests
 npm run test:e2e  # integration test (requires the db container running, see step 3)
 ```
 
-## 8. Stop and clean up
+## 9. Stop and clean up
 
 ```bash
 docker compose down              # stop and remove containers (keeps images and data)

@@ -239,11 +239,38 @@ describe('SalesService', () => {
           newStatus: ArtworkStatus.SOLD,
         }),
       );
-      expect(mockManager.save).toHaveBeenCalledTimes(3);
+      expect(mockManager.save).toHaveBeenCalledTimes(4);
       expect(mockManager.update).toHaveBeenCalledWith(
         expect.anything(),
         'artwork-1',
         { status: ArtworkStatus.SOLD },
+      );
+    });
+
+    it('generates an artist statement for the sale in the same transaction', async () => {
+      mockQueryBuilder.getOne.mockResolvedValueOnce({
+        ...mockArtwork,
+        status: ArtworkStatus.AVAILABLE,
+      });
+
+      await service.processSale(
+        {
+          artworkId: 'artwork-1',
+          buyer: 'Jean',
+          buyerContact: 'j@mail.fr',
+          salePrice: 10000,
+        },
+        mockGalleryUser,
+      );
+
+      expect(mockManager.create).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          totalSalesCount: 1,
+          totalSaleAmount: 10000,
+          totalCommission: 3500,
+          netAmount: 6500,
+        }),
       );
     });
 

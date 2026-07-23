@@ -1,9 +1,13 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { ConflictException, UnauthorizedException } from '@nestjs/common';
+import {
+  ConflictException,
+  ForbiddenException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
-import * as bcrypt from 'bcryptjs';
+import * as bcrypt from 'bcrypt';
 import { AuthService } from './auth.service';
 import { RefreshToken } from './entities/refresh-token.entity';
 import { UsersService } from '../users/users.service';
@@ -61,6 +65,20 @@ describe('AuthService', () => {
   });
 
   describe('register', () => {
+    it('throws ForbiddenException when trying to self-register as admin', async () => {
+      await expect(
+        service.register({
+          email: 'attacker@test.com',
+          password: 'password123',
+          firstName: 'Would-be',
+          lastName: 'Admin',
+          role: Role.ADMIN,
+        }),
+      ).rejects.toThrow(ForbiddenException);
+
+      expect(mockUsersService.findByEmail).not.toHaveBeenCalled();
+    });
+
     it('throws ConflictException when email already exists', async () => {
       mockUsersService.findByEmail.mockResolvedValue({ id: 'user-1' });
 

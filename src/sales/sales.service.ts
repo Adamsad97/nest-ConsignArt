@@ -8,6 +8,7 @@ import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { Sale } from './entities/sale.entity';
 import { Invoice } from './entities/invoice.entity';
+import { ArtistStatement } from '../reports/entities/artist-statement.entity';
 import { CreateSaleDto } from './dto/create-sale.dto';
 import { InvoiceStatus } from './entities/enums/invoice-status.enum';
 import { Artwork } from '../artworks/entities/artwork.entity';
@@ -151,12 +152,13 @@ export class SalesService {
       await manager.save(Invoice, invoice);
 
       const gallery = artwork.gallery;
+      const saleDate = dto.saleDate ? new Date(dto.saleDate) : new Date();
 
       const sale = manager.create(Sale, {
         buyer,
         buyerContact,
         buyerAccount,
-        saleDate: dto.saleDate ? new Date(dto.saleDate) : new Date(),
+        saleDate,
         salePrice: dto.salePrice,
         commissionRate: commission.rate,
         galleryCommission: commission.galleryCommission,
@@ -179,6 +181,32 @@ export class SalesService {
         changedBy: buyerAccount ?? gallery,
       });
       await manager.save(ArtworkStatusHistory, history);
+
+      const period = `${saleDate.getFullYear()}-${String(saleDate.getMonth() + 1).padStart(2, '0')}`;
+      const statement = manager.create(ArtistStatement, {
+        period,
+        periodStart: saleDate,
+        periodEnd: saleDate,
+        totalSalesCount: 1,
+        totalSaleAmount: dto.salePrice,
+        totalCommission: commission.galleryCommission,
+        netAmount: commission.artistAmount,
+        items: [
+          {
+            saleId: sale.id,
+            artworkTitle: artwork.title,
+            saleDate,
+            salePrice: dto.salePrice,
+            commission: commission.galleryCommission,
+            net: commission.artistAmount,
+          },
+        ],
+        generatedAt: new Date(),
+        artist: artwork.artist,
+        gallery,
+        generatedBy: buyerAccount ?? gallery,
+      });
+      await manager.save(ArtistStatement, statement);
 
       sale.artwork.status = ArtworkStatus.SOLD;
       return sale;
