@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -123,8 +124,42 @@ export class ReportsService {
     return this.statementsRepository.save(statement);
   }
 
-  async getGalleryDashboard(currentUser: AuthenticatedUser) {
-    const galleryId = currentUser.id;
+  /**
+   * Resolves which gallery's dashboard is being requested. A gallery user
+   * always sees their own dashboard (any `galleryId` they pass is ignored,
+   * so they can't peek at another gallery's figures). An admin has no
+   * gallery of their own, so they must pass `galleryId` explicitly.
+   */
+  private async resolveGalleryId(
+    currentUser: AuthenticatedUser,
+    galleryId?: string,
+  ): Promise<string> {
+    if (currentUser.role !== Role.ADMIN) {
+      return currentUser.id;
+    }
+
+    if (!galleryId) {
+      throw new BadRequestException(
+        'galleryId query parameter is required for admins',
+      );
+    }
+
+    const gallery = await this.usersService.findOne(galleryId);
+    if (gallery.role !== Role.GALLERY) {
+      throw new BadRequestException('Target user must have role GALLERY');
+    }
+
+    return galleryId;
+  }
+
+  async getGalleryDashboard(
+    currentUser: AuthenticatedUser,
+    requestedGalleryId?: string,
+  ) {
+    const galleryId = await this.resolveGalleryId(
+      currentUser,
+      requestedGalleryId,
+    );
 
     const totalSales = await this.salesRepository.count({
       where: { gallery: { id: galleryId } },

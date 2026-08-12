@@ -1,5 +1,18 @@
-import { Controller, Get, Post, Param, Body, UseGuards } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import {
+  Controller,
+  Get,
+  Post,
+  Param,
+  Body,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiBearerAuth,
+  ApiQuery,
+} from '@nestjs/swagger';
 import { ReportsService } from './reports.service';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -62,8 +75,17 @@ export class ReportsController {
   @ApiOperation({
     summary: 'Gallery dashboard: revenue, top artists, sales count',
   })
-  galleryDashboard(@CurrentUser() user: AuthenticatedUser) {
-    return this.reportsService.getGalleryDashboard(user);
+  @ApiQuery({
+    name: 'galleryId',
+    required: false,
+    description:
+      'Required for admins to pick which gallery to view. Ignored for gallery users, who always see their own dashboard.',
+  })
+  galleryDashboard(
+    @Query('galleryId') galleryId: string | undefined,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.reportsService.getGalleryDashboard(user, galleryId);
   }
 
   @Get('dashboard/artist/:artistId')

@@ -1,5 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { ForbiddenException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { ReportsService } from './reports.service';
 import { ArtistStatement } from './entities/artist-statement.entity';
@@ -26,6 +30,12 @@ const mockArtistUser = {
   id: 'artist-user-1',
   email: 'artist@test.com',
   role: Role.ARTIST,
+};
+
+const mockAdminUser = {
+  id: 'admin-1',
+  email: 'admin@test.com',
+  role: Role.ADMIN,
 };
 
 const mockStatementsRepository = {
@@ -199,6 +209,40 @@ describe('ReportsService', () => {
         { month: '2026-02', artworksSold: 1, revenue: 800 },
       ]);
       expect(result.turnoverRate).toBeCloseTo(66.67, 1);
+    });
+
+    it('throws BadRequestException when an admin omits galleryId', async () => {
+      await expect(
+        service.getGalleryDashboard(mockAdminUser),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('throws BadRequestException when an admin targets a non-gallery user', async () => {
+      mockUsersService.findOne.mockResolvedValue({
+        id: 'artist-user-1',
+        role: Role.ARTIST,
+      });
+
+      await expect(
+        service.getGalleryDashboard(mockAdminUser, 'artist-user-1'),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('lets an admin view a specific gallery dashboard via galleryId', async () => {
+      mockUsersService.findOne.mockResolvedValue({
+        id: 'gallery-1',
+        role: Role.GALLERY,
+      });
+      mockSalesRepository.count.mockResolvedValue(0);
+      mockSalesRepository.find.mockResolvedValue([]);
+      mockArtworksService.findAll.mockResolvedValue([]);
+
+      const result = await service.getGalleryDashboard(
+        mockAdminUser,
+        'gallery-1',
+      );
+
+      expect(result.totalSales).toBe(0);
     });
   });
 
