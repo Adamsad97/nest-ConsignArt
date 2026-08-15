@@ -18,6 +18,11 @@ import { CategoriesService } from '../categories/categories.service';
 import { AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { Role } from '../users/enums/role.enum';
 import { BusinessRuleViolationException } from '../common/exceptions/business-rule-violation.exception';
+import {
+  findMaybePaginated,
+  Paginated,
+} from '../common/pagination/paginate';
+import { PaginationQueryDto } from '../common/pagination/pagination-query.dto';
 
 @Injectable()
 export class ArtworksService {
@@ -83,10 +88,18 @@ export class ArtworksService {
     return saved;
   }
 
-  findAll(): Promise<Artwork[]> {
-    return this.artworksRepository.find({
-      relations: { gallery: true, artist: true, categories: true },
-    });
+  findAll(): Promise<Artwork[]>;
+  findAll(
+    pagination: PaginationQueryDto,
+  ): Promise<Artwork[] | Paginated<Artwork>>;
+  findAll(
+    pagination?: PaginationQueryDto,
+  ): Promise<Artwork[] | Paginated<Artwork>> {
+    return findMaybePaginated(
+      this.artworksRepository,
+      { relations: { gallery: true, artist: true, categories: true } },
+      pagination,
+    );
   }
 
   async findOne(id: string): Promise<Artwork> {

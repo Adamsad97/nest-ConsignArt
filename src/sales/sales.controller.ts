@@ -1,7 +1,16 @@
-import { Controller, Get, Post, Param, Body, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Param,
+  Body,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { SalesService } from './sales.service';
 import { CreateSaleDto } from './dto/create-sale.dto';
+import { PaginationQueryDto } from '../common/pagination/pagination-query.dto';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import {
@@ -30,8 +39,11 @@ export class SalesController {
   @Get()
   @Roles(Role.GALLERY, Role.ADMIN, Role.ARTIST, Role.COLLECTOR)
   @ApiOperation({ summary: 'List sales (scoped by role)' })
-  findAll(@CurrentUser() user: AuthenticatedUser) {
-    return this.salesService.findAll(user);
+  findAll(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() pagination: PaginationQueryDto,
+  ) {
+    return this.salesService.findAll(user, pagination);
   }
 
   @Get(':id')

@@ -15,6 +15,11 @@ import { AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { Role } from '../users/enums/role.enum';
 import { ArtworkStatus } from '../artworks/enums/artwork-status.enum';
 import { BusinessRuleViolationException } from '../common/exceptions/business-rule-violation.exception';
+import {
+  findMaybePaginated,
+  Paginated,
+} from '../common/pagination/paginate';
+import { PaginationQueryDto } from '../common/pagination/pagination-query.dto';
 
 @Injectable()
 export class LoansService {
@@ -87,24 +92,24 @@ export class LoansService {
     return saved;
   }
 
-  findAll(currentUser: AuthenticatedUser): Promise<Loan[]> {
-    if (currentUser.role === Role.ADMIN) {
-      return this.loansRepository.find({
+  findAll(
+    currentUser: AuthenticatedUser,
+    pagination?: PaginationQueryDto,
+  ): Promise<Loan[] | Paginated<Loan>> {
+    return findMaybePaginated(
+      this.loansRepository,
+      {
+        ...(currentUser.role !== Role.ADMIN && {
+          where: { gallery: { id: currentUser.id } },
+        }),
         relations: {
           artwork: { artist: true },
           gallery: true,
           borrowerGallery: true,
         },
-      });
-    }
-    return this.loansRepository.find({
-      where: { gallery: { id: currentUser.id } },
-      relations: {
-        artwork: { artist: true },
-        gallery: true,
-        borrowerGallery: true,
       },
-    });
+      pagination,
+    );
   }
 
   async findOne(id: string, currentUser: AuthenticatedUser): Promise<Loan> {

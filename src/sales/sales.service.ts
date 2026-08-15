@@ -5,7 +5,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, FindOptionsWhere, Repository } from 'typeorm';
 import { Sale } from './entities/sale.entity';
 import { Invoice } from './entities/invoice.entity';
 import { ArtistStatement } from '../reports/entities/artist-statement.entity';
@@ -18,6 +18,11 @@ import { AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { Role } from '../users/enums/role.enum';
 import { BusinessRuleViolationException } from '../common/exceptions/business-rule-violation.exception';
 import { User } from '../users/entities/user.entity';
+import {
+  findMaybePaginated,
+  Paginated,
+} from '../common/pagination/paginate';
+import { PaginationQueryDto } from '../common/pagination/pagination-query.dto';
 
 interface CommissionResult {
   rate: number;
@@ -213,28 +218,27 @@ export class SalesService {
     });
   }
 
-  findAll(currentUser: AuthenticatedUser): Promise<Sale[]> {
-    if (currentUser.role === Role.ADMIN) {
-      return this.salesRepository.find({
-        relations: { artwork: { artist: true }, gallery: true, invoice: true },
-      });
-    }
+  findAll(
+    currentUser: AuthenticatedUser,
+    pagination?: PaginationQueryDto,
+  ): Promise<Sale[] | Paginated<Sale>> {
+    let where: FindOptionsWhere<Sale> | undefined;
     if (currentUser.role === Role.ARTIST) {
-      return this.salesRepository.find({
-        where: { artwork: { artist: { user: { id: currentUser.id } } } },
-        relations: { artwork: { artist: true }, gallery: true, invoice: true },
-      });
+      where = { artwork: { artist: { user: { id: currentUser.id } } } };
+    } else if (currentUser.role === Role.COLLECTOR) {
+      where = { buyerAccount: { id: currentUser.id } };
+    } else if (currentUser.role === Role.GALLERY) {
+      where = { gallery: { id: currentUser.id } };
     }
-    if (currentUser.role === Role.COLLECTOR) {
-      return this.salesRepository.find({
-        where: { buyerAccount: { id: currentUser.id } },
+
+    return findMaybePaginated(
+      this.salesRepository,
+      {
+        ...(where && { where }),
         relations: { artwork: { artist: true }, gallery: true, invoice: true },
-      });
-    }
-    return this.salesRepository.find({
-      where: { gallery: { id: currentUser.id } },
-      relations: { artwork: { artist: true }, gallery: true, invoice: true },
-    });
+      },
+      pagination,
+    );
   }
 
   async findOne(id: string, currentUser: AuthenticatedUser): Promise<Sale> {

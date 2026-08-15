@@ -6,12 +6,14 @@ import {
   Delete,
   Param,
   Body,
+  Query,
   UseGuards,
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { ArtistsService } from './artists.service';
+import { PaginationQueryDto } from '../common/pagination/pagination-query.dto';
 import { CreateArtistDto } from './dto/create-artist.dto';
 import { UpdateArtistDto } from './dto/update-artist.dto';
 import { RolesGuard } from '../common/guards/roles.guard';
@@ -39,8 +41,11 @@ export class ArtistsController {
   @Get()
   @Roles(Role.ADMIN, Role.GALLERY)
   @ApiOperation({ summary: 'List artists (gallery sees own, admin sees all)' })
-  findAll(@CurrentUser() user: AuthenticatedUser) {
-    return this.artistsService.findAll(user);
+  findAll(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() pagination: PaginationQueryDto,
+  ) {
+    return this.artistsService.findAll(user, pagination);
   }
 
   @Get(':id')

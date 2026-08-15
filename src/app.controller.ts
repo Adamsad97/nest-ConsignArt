@@ -14,4 +14,11 @@ export class AppController {
   getApiInfo() {
     return this.appService.getApiInfo();
   }
+
+  @Public()
+  @Get('health')
+  @ApiOperation({ summary: 'Health check (API and database connectivity)' })
+  getHealth() {
+    return this.appService.getHealth();
+  }
 }

@@ -6,12 +6,14 @@ import {
   Delete,
   Param,
   Body,
+  Query,
   UseGuards,
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { ExhibitionsService } from './exhibitions.service';
+import { PaginationQueryDto } from '../common/pagination/pagination-query.dto';
 import { CreateExhibitionDto } from './dto/create-exhibition.dto';
 import { UpdateExhibitionDto } from './dto/update-exhibition.dto';
 import { AddArtworkDto } from './dto/add-artwork.dto';
@@ -44,8 +46,11 @@ export class ExhibitionsController {
   @Get()
   @Roles(Role.GALLERY, Role.ADMIN)
   @ApiOperation({ summary: 'List exhibitions' })
-  findAll(@CurrentUser() user: AuthenticatedUser) {
-    return this.exhibitionsService.findAll(user);
+  findAll(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() pagination: PaginationQueryDto,
+  ) {
+    return this.exhibitionsService.findAll(user, pagination);
   }
 
   @Get(':id')

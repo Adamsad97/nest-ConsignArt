@@ -6,6 +6,7 @@ import {
   Delete,
   Param,
   Body,
+  Query,
   UseGuards,
   UseInterceptors,
   HttpCode,
@@ -29,6 +30,7 @@ import {
 import { Role } from '../users/enums/role.enum';
 import { ArtworkOwnerLimitPipe } from '../common/pipes/artwork-owner-limit.pipe';
 import { PriceNormalizationPipe } from '../common/pipes/price-normalization.pipe';
+import { PaginationQueryDto } from '../common/pagination/pagination-query.dto';
 
 @ApiTags('Artworks')
 @Controller('artworks')
@@ -38,9 +40,9 @@ export class ArtworksController {
   @Public()
   @UseInterceptors(CacheInterceptor)
   @Get()
-  @ApiOperation({ summary: 'List all artworks (public, cached)' })
-  findAll() {
-    return this.artworksService.findAll();
+  @ApiOperation({ summary: 'List all artworks (public, cached, paginable)' })
+  findAll(@Query() pagination: PaginationQueryDto) {
+    return this.artworksService.findAll(pagination);
   }
 
   @Public()

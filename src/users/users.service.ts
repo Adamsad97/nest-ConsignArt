@@ -5,6 +5,11 @@ import { User } from './entities/user.entity';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { Role } from './enums/role.enum';
+import {
+  findMaybePaginated,
+  Paginated,
+} from '../common/pagination/paginate';
+import { PaginationQueryDto } from '../common/pagination/pagination-query.dto';
 
 @Injectable()
 export class UsersService {
@@ -18,11 +23,19 @@ export class UsersService {
     return this.usersRepository.save(user);
   }
 
-  findAll(filters?: { role?: Role; isActive?: boolean }): Promise<User[]> {
+  findAll(filters?: { role?: Role; isActive?: boolean }): Promise<User[]>;
+  findAll(
+    filters: { role?: Role; isActive?: boolean },
+    pagination: PaginationQueryDto,
+  ): Promise<User[] | Paginated<User>>;
+  findAll(
+    filters?: { role?: Role; isActive?: boolean },
+    pagination?: PaginationQueryDto,
+  ): Promise<User[] | Paginated<User>> {
     const where: FindManyOptions<User>['where'] = {};
     if (filters?.role !== undefined) where['role'] = filters.role;
     if (filters?.isActive !== undefined) where['isActive'] = filters.isActive;
-    return this.usersRepository.find({ where });
+    return findMaybePaginated(this.usersRepository, { where }, pagination);
   }
 
   async findOne(id: string): Promise<User> {

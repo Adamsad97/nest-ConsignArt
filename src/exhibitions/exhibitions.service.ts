@@ -20,6 +20,11 @@ import { Role } from '../users/enums/role.enum';
 import { ArtworkStatus } from '../artworks/enums/artwork-status.enum';
 import { ExhibitionStatus } from './entities/enums/exhibition-status.enum';
 import { BusinessRuleViolationException } from '../common/exceptions/business-rule-violation.exception';
+import {
+  findMaybePaginated,
+  Paginated,
+} from '../common/pagination/paginate';
+import { PaginationQueryDto } from '../common/pagination/pagination-query.dto';
 
 @Injectable()
 export class ExhibitionsService {
@@ -95,16 +100,20 @@ export class ExhibitionsService {
     });
   }
 
-  findAll(currentUser: AuthenticatedUser): Promise<Exhibition[]> {
-    if (currentUser.role === Role.ADMIN) {
-      return this.exhibitionsRepository.find({
+  findAll(
+    currentUser: AuthenticatedUser,
+    pagination?: PaginationQueryDto,
+  ): Promise<Exhibition[] | Paginated<Exhibition>> {
+    return findMaybePaginated(
+      this.exhibitionsRepository,
+      {
+        ...(currentUser.role !== Role.ADMIN && {
+          where: { gallery: { id: currentUser.id } },
+        }),
         relations: { gallery: true, exhibitionArtworks: { artwork: true } },
-      });
-    }
-    return this.exhibitionsRepository.find({
-      where: { gallery: { id: currentUser.id } },
-      relations: { gallery: true, exhibitionArtworks: { artwork: true } },
-    });
+      },
+      pagination,
+    );
   }
 
   async findOne(
