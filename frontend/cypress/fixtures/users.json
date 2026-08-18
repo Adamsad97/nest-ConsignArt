@@ -1,0 +1,24 @@
+// cypress/fixtures/users.json
+// Données de test fixes pour les comptes utilisateurs
+{
+  "gallery": {
+    "email": "galerie-test@consignart.com",
+    "password": "TestGalerie123!",
+    "role": "gallery"
+  },
+  "artist": {
+    "email": "artiste-test@consignart.com",
+    "password": "TestArtiste123!",
+    "role": "artist"
+  },
+  "collector": {
+    "email": "collectionneur-test@consignart.com",
+    "password": "TestCollector123!",
+    "role": "collector"
+  },
+  "admin": {
+    "email": "platform-admin@consignart.com",
+    "password": "change_me_admin",
+    "role": "admin"
+  }
+}
