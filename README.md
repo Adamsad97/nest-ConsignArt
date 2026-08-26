@@ -96,6 +96,8 @@ Admin accounts can't be created through `POST /auth/register` (only `gallery`, `
 npm run seed:admin
 ```
 
+**Run this from your host machine (with `npm install` done locally), not with `docker compose exec api ...`.** The script connects to Postgres through the port Docker Compose publishes on the host (`localhost:5434`, mapped from the `db` container), which only resolves from outside the Docker network. It also needs `ts-node`, a dev dependency stripped from the production `api` image, so running it inside that container fails outright.
+
 Safe to re-run: it's a no-op if that email already has an account.
 
 ## 6. Interact with the API
