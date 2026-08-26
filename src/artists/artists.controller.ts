@@ -16,6 +16,7 @@ import { ArtistsService } from './artists.service';
 import { PaginationQueryDto } from '../common/pagination/pagination-query.dto';
 import { CreateArtistDto } from './dto/create-artist.dto';
 import { UpdateArtistDto } from './dto/update-artist.dto';
+import { TransferArtistDto } from './dto/transfer-artist.dto';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import {
@@ -73,10 +74,10 @@ export class ArtistsController {
   })
   transfer(
     @Param('id') id: string,
-    @Body('galleryId') galleryId: string,
+    @Body() dto: TransferArtistDto,
     @CurrentUser() user: AuthenticatedUser,
   ) {
-    return this.artistsService.transferGallery(id, galleryId, user);
+    return this.artistsService.transferGallery(id, dto.galleryId, user);
   }
 
   @Patch(':id/activate')
