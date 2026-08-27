@@ -21,6 +21,7 @@ const mockUsersService = {
 
 const mockJwtService = {
   sign: vi.fn().mockReturnValue('signed-jwt'),
+  decode: vi.fn().mockReturnValue({ iat: 1_000, exp: 1_900 }),
 };
 
 const mockConfigService = {

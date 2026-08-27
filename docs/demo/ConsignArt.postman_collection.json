@@ -1,0 +1,465 @@
+{
+  "info": {
+    "name": "ConsignArt — Démo Soutenance",
+    "description": "Scénario complet: auth/roles, artistes, oeuvres, exposition/pret, vente/commission, rapports. Les tokens et ids s'enregistrent automatiquement dans les variables de collection au fil des requetes (voir onglet Tests de chaque requete). Renseigne adminEmail/adminPassword avant de commencer.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3000/api/v1" },
+    { "key": "adminEmail", "value": "CHANGE_ME" },
+    { "key": "adminPassword", "value": "CHANGE_ME" },
+    { "key": "adminToken", "value": "" },
+    { "key": "galleryToken", "value": "" },
+    { "key": "gallery2Token", "value": "" },
+    { "key": "collectorToken", "value": "" },
+    { "key": "collectorRefreshToken", "value": "" },
+    { "key": "galleryId", "value": "" },
+    { "key": "gallery2Id", "value": "" },
+    { "key": "artistUserId", "value": "" },
+    { "key": "artistId", "value": "" },
+    { "key": "artwork1Id", "value": "" },
+    { "key": "artwork2Id", "value": "" },
+    { "key": "artwork3Id", "value": "" },
+    { "key": "exhibitionId", "value": "" },
+    { "key": "loanId", "value": "" },
+    { "key": "saleId", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "1. Auth & rôles",
+      "item": [
+        {
+          "name": "Register gallery",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"gallery.{{$timestamp}}@consignart-demo.fr\",\n  \"password\": \"GalerieP3rrotin!\",\n  \"firstName\": \"Emmanuel\",\n  \"lastName\": \"Perrotin\",\n  \"role\": \"gallery\"\n}" },
+            "url": { "raw": "{{baseUrl}}/auth/register", "host": ["{{baseUrl}}"], "path": ["auth", "register"] },
+            "description": "Attendu: 201, isActive=false (galerie non validee)"
+          },
+          "event": [{ "listen": "test", "script": { "exec": [
+            "const json = pm.response.json();",
+            "pm.collectionVariables.set('galleryId', json.data.id);",
+            "pm.collectionVariables.set('galleryEmail', json.data.email);",
+            "pm.test('201 + isActive false', () => { pm.expect(pm.response.code).to.eql(201); pm.expect(json.data.isActive).to.eql(false); });"
+          ] } }]
+        },
+        {
+          "name": "Register gallery 2 (pour ownership/prêt)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"gallery2.{{$timestamp}}@consignart-demo.fr\",\n  \"password\": \"Kam3lMennour!\",\n  \"firstName\": \"Kamel\",\n  \"lastName\": \"Mennour\",\n  \"role\": \"gallery\"\n}" },
+            "url": { "raw": "{{baseUrl}}/auth/register", "host": ["{{baseUrl}}"], "path": ["auth", "register"] }
+          },
+          "event": [{ "listen": "test", "script": { "exec": [
+            "const json = pm.response.json();",
+            "pm.collectionVariables.set('gallery2Id', json.data.id);",
+            "pm.collectionVariables.set('gallery2Email', json.data.email);"
+          ] } }]
+        },
+        {
+          "name": "Register artist",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"artist.{{$timestamp}}@consignart-demo.fr\",\n  \"password\": \"SophieC4lle!\",\n  \"firstName\": \"Sophie\",\n  \"lastName\": \"Calle\",\n  \"role\": \"artist\"\n}" },
+            "url": { "raw": "{{baseUrl}}/auth/register", "host": ["{{baseUrl}}"], "path": ["auth", "register"] },
+            "description": "Attendu: 201, isActive=true immediatement (pas de validation admin pour artist/collector)"
+          },
+          "event": [{ "listen": "test", "script": { "exec": [
+            "const json = pm.response.json();",
+            "pm.collectionVariables.set('artistUserId', json.data.id);",
+            "pm.collectionVariables.set('artistEmail', json.data.email);"
+          ] } }]
+        },
+        {
+          "name": "Register collector",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"collector.{{$timestamp}}@consignart-demo.fr\",\n  \"password\": \"J3anDup0nt!\",\n  \"firstName\": \"Jean\",\n  \"lastName\": \"Dupont\",\n  \"role\": \"collector\"\n}" },
+            "url": { "raw": "{{baseUrl}}/auth/register", "host": ["{{baseUrl}}"], "path": ["auth", "register"] }
+          },
+          "event": [{ "listen": "test", "script": { "exec": [
+            "const json = pm.response.json();",
+            "pm.collectionVariables.set('collectorId', json.data.id);",
+            "pm.collectionVariables.set('collectorEmail', json.data.email);"
+          ] } }]
+        },
+        {
+          "name": "Register admin -> 403 (refusé)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"hacker@test.fr\",\n  \"password\": \"Test1234!\",\n  \"firstName\": \"X\",\n  \"lastName\": \"Y\",\n  \"role\": \"admin\"\n}" },
+            "url": { "raw": "{{baseUrl}}/auth/register", "host": ["{{baseUrl}}"], "path": ["auth", "register"] },
+            "description": "Attendu: 400/403 — un admin ne peut pas s'auto-enregistrer"
+          }
+        },
+        {
+          "name": "GET /users sans token -> 401",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/users", "host": ["{{baseUrl}}"], "path": ["users"] },
+            "description": "Attendu: 401 — JwtAuthGuard global"
+          }
+        },
+        {
+          "name": "Login admin",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"{{adminEmail}}\",\n  \"password\": \"{{adminPassword}}\"\n}" },
+            "url": { "raw": "{{baseUrl}}/auth/login", "host": ["{{baseUrl}}"], "path": ["auth", "login"] }
+          },
+          "event": [{ "listen": "test", "script": { "exec": [
+            "const json = pm.response.json();",
+            "pm.collectionVariables.set('adminToken', json.data.access_token);"
+          ] } }]
+        },
+        {
+          "name": "Activate gallery 1 (admin)",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": { "raw": "{{baseUrl}}/users/{{galleryId}}/activate", "host": ["{{baseUrl}}"], "path": ["users", "{{galleryId}}", "activate"] }
+          }
+        },
+        {
+          "name": "Activate gallery 2 (admin)",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": { "raw": "{{baseUrl}}/users/{{gallery2Id}}/activate", "host": ["{{baseUrl}}"], "path": ["users", "{{gallery2Id}}", "activate"] }
+          }
+        },
+        {
+          "name": "Login gallery 1",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"{{galleryEmail}}\",\n  \"password\": \"GalerieP3rrotin!\"\n}" },
+            "url": { "raw": "{{baseUrl}}/auth/login", "host": ["{{baseUrl}}"], "path": ["auth", "login"] }
+          },
+          "event": [{ "listen": "test", "script": { "exec": [
+            "const json = pm.response.json();",
+            "pm.collectionVariables.set('galleryToken', json.data.access_token);"
+          ] } }]
+        },
+        {
+          "name": "Login gallery 2",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"{{gallery2Email}}\",\n  \"password\": \"Kam3lMennour!\"\n}" },
+            "url": { "raw": "{{baseUrl}}/auth/login", "host": ["{{baseUrl}}"], "path": ["auth", "login"] }
+          },
+          "event": [{ "listen": "test", "script": { "exec": [
+            "const json = pm.response.json();",
+            "pm.collectionVariables.set('gallery2Token', json.data.access_token);"
+          ] } }]
+        },
+        {
+          "name": "Login collector",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"{{collectorEmail}}\",\n  \"password\": \"J3anDup0nt!\"\n}" },
+            "url": { "raw": "{{baseUrl}}/auth/login", "host": ["{{baseUrl}}"], "path": ["auth", "login"] }
+          },
+          "event": [{ "listen": "test", "script": { "exec": [
+            "const json = pm.response.json();",
+            "pm.collectionVariables.set('collectorToken', json.data.access_token);",
+            "pm.collectionVariables.set('collectorRefreshToken', json.data.refresh_token);"
+          ] } }]
+        }
+      ]
+    },
+    {
+      "name": "2. Artistes & oeuvres",
+      "item": [
+        {
+          "name": "Create artist profile",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{galleryToken}}" }],
+            "body": { "mode": "raw", "raw": "{\n  \"firstName\": \"Sophie\",\n  \"lastName\": \"Calle\",\n  \"bio\": \"Artiste plasticienne francaise, figure majeure de l'art conceptuel.\",\n  \"nationality\": \"French\",\n  \"birthYear\": 1953,\n  \"specialty\": \"Photography\",\n  \"websiteUrl\": \"https://sophiecalle.net\",\n  \"userId\": \"{{artistUserId}}\"\n}" },
+            "url": { "raw": "{{baseUrl}}/artists", "host": ["{{baseUrl}}"], "path": ["artists"] }
+          },
+          "event": [{ "listen": "test", "script": { "exec": [
+            "const json = pm.response.json();",
+            "pm.collectionVariables.set('artistId', json.data.id);"
+          ] } }]
+        },
+        {
+          "name": "Create artwork 1 (à vendre)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{galleryToken}}" }],
+            "body": { "mode": "raw", "raw": "{\n  \"title\": \"Les Dormeurs\",\n  \"description\": \"Serie photographique documentant 45 personnes invitees a dormir dans le lit de l'artiste.\",\n  \"technique\": \"Photographie argentique\",\n  \"year\": 1979,\n  \"height\": 40,\n  \"width\": 60,\n  \"price\": 8000,\n  \"reservePrice\": 6000,\n  \"imageUrl\": \"https://example.com/les-dormeurs.jpg\",\n  \"artistId\": \"{{artistId}}\"\n}" },
+            "url": { "raw": "{{baseUrl}}/artworks", "host": ["{{baseUrl}}"], "path": ["artworks"] },
+            "description": "PriceNormalizationPipe applique sur price/reservePrice"
+          },
+          "event": [{ "listen": "test", "script": { "exec": [
+            "const json = pm.response.json();",
+            "pm.collectionVariables.set('artwork1Id', json.data.id);"
+          ] } }]
+        },
+        {
+          "name": "Create artwork 2 (pour exposition/prêt)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{galleryToken}}" }],
+            "body": { "mode": "raw", "raw": "{\n  \"title\": \"Prenez soin de vous\",\n  \"technique\": \"Installation video\",\n  \"year\": 2007,\n  \"price\": 15000,\n  \"reservePrice\": 12000,\n  \"artistId\": \"{{artistId}}\"\n}" },
+            "url": { "raw": "{{baseUrl}}/artworks", "host": ["{{baseUrl}}"], "path": ["artworks"] }
+          },
+          "event": [{ "listen": "test", "script": { "exec": [
+            "const json = pm.response.json();",
+            "pm.collectionVariables.set('artwork2Id', json.data.id);"
+          ] } }]
+        },
+        {
+          "name": "Create artwork 3 (pour prêt / prix de réserve)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{galleryToken}}" }],
+            "body": { "mode": "raw", "raw": "{\n  \"title\": \"Douleur exquise\",\n  \"technique\": \"Livre d'artiste\",\n  \"year\": 2003,\n  \"price\": 3000,\n  \"reservePrice\": 2500,\n  \"artistId\": \"{{artistId}}\"\n}" },
+            "url": { "raw": "{{baseUrl}}/artworks", "host": ["{{baseUrl}}"], "path": ["artworks"] }
+          },
+          "event": [{ "listen": "test", "script": { "exec": [
+            "const json = pm.response.json();",
+            "pm.collectionVariables.set('artwork3Id', json.data.id);"
+          ] } }]
+        },
+        {
+          "name": "Collector essaie de créer une oeuvre -> 403",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{collectorToken}}" }],
+            "body": { "mode": "raw", "raw": "{\n  \"title\": \"Interdit\",\n  \"technique\": \"Peinture\",\n  \"year\": 2020,\n  \"price\": 1000,\n  \"reservePrice\": 500,\n  \"artistId\": \"{{artistId}}\"\n}" },
+            "url": { "raw": "{{baseUrl}}/artworks", "host": ["{{baseUrl}}"], "path": ["artworks"] },
+            "description": "Attendu: 403 — RolesGuard (@Roles(GALLERY, ADMIN))"
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Exposition & prêt",
+      "item": [
+        {
+          "name": "Exposition 0 oeuvre -> 400",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{galleryToken}}" }],
+            "body": { "mode": "raw", "raw": "{\n  \"title\": \"Expo vide\",\n  \"location\": \"Nulle part\",\n  \"startDate\": \"2026-10-01\",\n  \"endDate\": \"2026-10-02\",\n  \"artworkIds\": []\n}" },
+            "url": { "raw": "{{baseUrl}}/exhibitions", "host": ["{{baseUrl}}"], "path": ["exhibitions"] },
+            "description": "Attendu: 400 — validation class-validator (min 1 element)"
+          }
+        },
+        {
+          "name": "Create exhibition (avec artwork 2)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{galleryToken}}" }],
+            "body": { "mode": "raw", "raw": "{\n  \"title\": \"Nuit Blanche 2026\",\n  \"location\": \"Galerie Perrotin, Paris\",\n  \"startDate\": \"2026-09-01\",\n  \"endDate\": \"2026-09-30\",\n  \"artworkIds\": [\"{{artwork2Id}}\"]\n}" },
+            "url": { "raw": "{{baseUrl}}/exhibitions", "host": ["{{baseUrl}}"], "path": ["exhibitions"] }
+          },
+          "event": [{ "listen": "test", "script": { "exec": [
+            "const json = pm.response.json();",
+            "pm.collectionVariables.set('exhibitionId', json.data.id);"
+          ] } }]
+        },
+        {
+          "name": "Start exhibition -> artwork2 passe on_loan",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Authorization", "value": "Bearer {{galleryToken}}" }],
+            "url": { "raw": "{{baseUrl}}/exhibitions/{{exhibitionId}}/start", "host": ["{{baseUrl}}"], "path": ["exhibitions", "{{exhibitionId}}", "start"] }
+          }
+        },
+        {
+          "name": "Vendre artwork2 (on_loan) -> 422",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{collectorToken}}" }],
+            "body": { "mode": "raw", "raw": "{\n  \"artworkId\": \"{{artwork2Id}}\",\n  \"salePrice\": 15000\n}" },
+            "url": { "raw": "{{baseUrl}}/sales", "host": ["{{baseUrl}}"], "path": ["sales"] },
+            "description": "Attendu: 422 BusinessRuleViolation / ARTWORK_ON_LOAN"
+          }
+        },
+        {
+          "name": "Prêt artwork3 vers gallery2",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{galleryToken}}" }],
+            "body": { "mode": "raw", "raw": "{\n  \"artworkId\": \"{{artwork3Id}}\",\n  \"borrowerGalleryId\": \"{{gallery2Id}}\",\n  \"purpose\": \"Exposition temporaire Art Basel\",\n  \"startDate\": \"2026-09-05\",\n  \"expectedReturnDate\": \"2026-09-20\",\n  \"conditions\": \"Transport assure, climatisation controlee, assurance clou a clou\"\n}" },
+            "url": { "raw": "{{baseUrl}}/loans", "host": ["{{baseUrl}}"], "path": ["loans"] }
+          },
+          "event": [{ "listen": "test", "script": { "exec": [
+            "const json = pm.response.json();",
+            "pm.collectionVariables.set('loanId', json.data.id);"
+          ] } }]
+        },
+        {
+          "name": "Re-prêter artwork3 (déjà prêtée) -> 422",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{galleryToken}}" }],
+            "body": { "mode": "raw", "raw": "{\n  \"artworkId\": \"{{artwork3Id}}\",\n  \"borrowerGalleryId\": \"{{gallery2Id}}\",\n  \"purpose\": \"Second pret\",\n  \"startDate\": \"2026-09-05\",\n  \"expectedReturnDate\": \"2026-09-20\"\n}" },
+            "url": { "raw": "{{baseUrl}}/loans", "host": ["{{baseUrl}}"], "path": ["loans"] },
+            "description": "Attendu: 422 ARTWORK_NOT_AVAILABLE"
+          }
+        },
+        {
+          "name": "Gallery2 modifie artwork3 (pas la sienne) -> 403",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{gallery2Token}}" }],
+            "body": { "mode": "raw", "raw": "{\n  \"status\": \"returned\"\n}" },
+            "url": { "raw": "{{baseUrl}}/artworks/{{artwork3Id}}/status", "host": ["{{baseUrl}}"], "path": ["artworks", "{{artwork3Id}}", "status"] },
+            "description": "Attendu: 403 — OwnershipGuard"
+          }
+        },
+        {
+          "name": "Retour de prêt",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Authorization", "value": "Bearer {{galleryToken}}" }],
+            "url": { "raw": "{{baseUrl}}/loans/{{loanId}}/return", "host": ["{{baseUrl}}"], "path": ["loans", "{{loanId}}", "return"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Vente, commission, facture",
+      "item": [
+        {
+          "name": "Vente sous prix de réserve -> 422",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{collectorToken}}" }],
+            "body": { "mode": "raw", "raw": "{\n  \"artworkId\": \"{{artwork3Id}}\",\n  \"salePrice\": 2000\n}" },
+            "url": { "raw": "{{baseUrl}}/sales", "host": ["{{baseUrl}}"], "path": ["sales"] },
+            "description": "Attendu: 422 BELOW_RESERVE_PRICE (reserve=2500)"
+          }
+        },
+        {
+          "name": "Vente valide artwork1 (8000€ -> commission 35%)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{collectorToken}}" }],
+            "body": { "mode": "raw", "raw": "{\n  \"artworkId\": \"{{artwork1Id}}\",\n  \"salePrice\": 8000\n}" },
+            "url": { "raw": "{{baseUrl}}/sales", "host": ["{{baseUrl}}"], "path": ["sales"] },
+            "description": "Attendu: commissionRate 0.35, galleryCommission 2800, artistAmount 5200, invoice imbriquee"
+          },
+          "event": [{ "listen": "test", "script": { "exec": [
+            "const json = pm.response.json();",
+            "pm.collectionVariables.set('saleId', json.data.id);",
+            "pm.test('commission 35%', () => { pm.expect(json.data.commissionRate).to.eql(0.35); pm.expect(json.data.galleryCommission).to.eql(2800); });"
+          ] } }]
+        },
+        {
+          "name": "GET invoice de la vente",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{collectorToken}}" }],
+            "url": { "raw": "{{baseUrl}}/sales/{{saleId}}/invoice", "host": ["{{baseUrl}}"], "path": ["sales", "{{saleId}}", "invoice"] }
+          }
+        },
+        {
+          "name": "GET relevé artiste (auto-généré)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{galleryToken}}" }],
+            "url": { "raw": "{{baseUrl}}/reports/artist-statements/artist/{{artistId}}", "host": ["{{baseUrl}}"], "path": ["reports", "artist-statements", "artist", "{{artistId}}"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. Transfert artiste & auth avancé",
+      "item": [
+        {
+          "name": "Transfert refusé pour une galerie -> 403",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{galleryToken}}" }],
+            "body": { "mode": "raw", "raw": "{\n  \"galleryId\": \"{{gallery2Id}}\"\n}" },
+            "url": { "raw": "{{baseUrl}}/artists/{{artistId}}/transfer", "host": ["{{baseUrl}}"], "path": ["artists", "{{artistId}}", "transfer"] }
+          }
+        },
+        {
+          "name": "Transfert sans galleryId -> 400 (DTO)",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "body": { "mode": "raw", "raw": "{}" },
+            "url": { "raw": "{{baseUrl}}/artists/{{artistId}}/transfer", "host": ["{{baseUrl}}"], "path": ["artists", "{{artistId}}", "transfer"] }
+          }
+        },
+        {
+          "name": "Transfert valide (admin)",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "body": { "mode": "raw", "raw": "{\n  \"galleryId\": \"{{gallery2Id}}\"\n}" },
+            "url": { "raw": "{{baseUrl}}/artists/{{artistId}}/transfer", "host": ["{{baseUrl}}"], "path": ["artists", "{{artistId}}", "transfer"] }
+          }
+        },
+        {
+          "name": "Refresh token",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"refreshToken\": \"{{collectorRefreshToken}}\"\n}" },
+            "url": { "raw": "{{baseUrl}}/auth/refresh", "host": ["{{baseUrl}}"], "path": ["auth", "refresh"] }
+          },
+          "event": [{ "listen": "test", "script": { "exec": [
+            "const json = pm.response.json();",
+            "pm.collectionVariables.set('collectorToken', json.data.access_token);"
+          ] } }]
+        },
+        {
+          "name": "Réutiliser l'ancien refresh token -> 401",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"refreshToken\": \"{{collectorRefreshToken}}\"\n}" },
+            "url": { "raw": "{{baseUrl}}/auth/refresh", "host": ["{{baseUrl}}"], "path": ["auth", "refresh"] },
+            "description": "Attendu: 401 — token deja revoque par le refresh precedent"
+          }
+        }
+      ]
+    },
+    {
+      "name": "6. Dashboards",
+      "item": [
+        {
+          "name": "Dashboard gallery",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{galleryToken}}" }],
+            "url": { "raw": "{{baseUrl}}/reports/dashboard/gallery", "host": ["{{baseUrl}}"], "path": ["reports", "dashboard", "gallery"] }
+          }
+        },
+        {
+          "name": "Dashboard artist (via admin)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": { "raw": "{{baseUrl}}/reports/dashboard/artist/{{artistId}}", "host": ["{{baseUrl}}"], "path": ["reports", "dashboard", "artist", "{{artistId}}"] }
+          }
+        },
+        {
+          "name": "Dashboard admin",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": { "raw": "{{baseUrl}}/reports/dashboard/admin", "host": ["{{baseUrl}}"], "path": ["reports", "dashboard", "admin"] }
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -119,6 +119,14 @@ export class AuthService {
       expiresIn: (this.configService.get<string>('JWT_ACCESS_EXPIRATION') ??
         '15m') as JwtSignOptions['expiresIn'],
     });
+    // Read the actual iat/exp back off the token we just signed, rather than
+    // re-parsing JWT_ACCESS_EXPIRATION ourselves, so this figure can never
+    // drift out of sync with what the token really carries.
+    const { iat, exp } = this.jwtService.decode(accessToken) as {
+      iat: number;
+      exp: number;
+    };
+    const expiresIn = exp - iat;
 
     const rawRefreshToken = randomUUID();
     const tokenHash = await bcrypt.hash(rawRefreshToken, 10);
@@ -137,7 +145,7 @@ export class AuthService {
       access_token: accessToken,
       refresh_token: rawRefreshToken,
       token_type: 'Bearer',
-      expires_in: 900,
+      expires_in: expiresIn,
     };
   }
 }
