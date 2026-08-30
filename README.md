@@ -1,125 +1,227 @@
 # ConsignArt
 
-[![CI](https://github.com/Adamsad97/nest-ConsignArt-/actions/workflows/ci.yml/badge.svg)](https://github.com/Adamsad97/nest-ConsignArt-/actions/workflows/ci.yml)
+[![CI](https://github.com/Adamsad97/nest-ConsignArt/actions/workflows/ci.yml/badge.svg)](https://github.com/Adamsad97/nest-ConsignArt/actions/workflows/ci.yml)
 
-B2B REST API for art galleries to manage artwork consignment: an artist entrusts artworks to a gallery, which exhibits and sells them for a commission. Built with NestJS, TypeORM and PostgreSQL.
+Plateforme B2B de gestion de consignation d'œuvres d'art. Un artiste confie ses œuvres à une galerie, qui les expose et les vend moyennant commission. Le projet comprend une **API REST NestJS** et une **interface web React** complète, le tout conteneurisé avec Docker.
 
-## Features
+---
 
-- **Auth** — JWT access + refresh tokens, bcrypt, admin-gated gallery activation. Admin accounts can't be self-registered (only `gallery`/`artist`/`collector` are open at signup) — the first admin is bootstrapped with `npm run seed:admin`
-- **Artists** — gallery-owned catalog, admin-only transfer between galleries
-- **Artworks** — consignment lifecycle (`available` → `on_loan` → `sold`/`returned`), full status history, reserve price enforcement, 50-active-artworks-per-artist limit
-- **Exhibitions & loans** — artwork availability automatically tracked
-- **Sales** — atomic transaction (row-level lock), tiered commission (40/35/30%), invoice + artist statement generated automatically for every sale
-- **Reports** — dashboards for gallery, artist and admin
+## Stack technique
 
-## Technical choices
-
-| Choice | Why |
+| Couche | Technologie |
 |---|---|
-| PostgreSQL over SQLite | Row-level locking needed for the sale transaction, relational integrity across 11 tables |
-| JWT access + refresh | Stateless access; refresh tokens stored hashed and revocable |
-| Vitest | Faster than Jest for this project size, native ESM/TS support via SWC |
-| Admin bootstrapped via seed script, not public signup | Self-registering as `admin` would let anyone bypass the gallery-validation workflow entirely |
+| Backend | NestJS · TypeORM · PostgreSQL |
+| Frontend | React · TypeScript · Vite |
+| Auth | JWT (access + refresh tokens) · bcrypt |
+| Tests unitaires | Vitest |
+| Tests E2E | Cypress 15 (10 suites, 77 cas d'usage) |
+| Infra | Docker Compose |
+| CI | GitHub Actions |
 
-## Database schema
+---
+
+## Fonctionnalités
+
+- **Auth** — JWT access + refresh tokens, bcrypt, activation galerie par admin. Les comptes admin ne peuvent pas s'auto-enregistrer (seuls `gallery` / `artist` / `collector` ont accès à l'inscription publique) — le premier admin est bootstrappé via `npm run seed:admin`
+- **Artistes** — catalogue géré par galerie, transfert entre galeries réservé à l'admin
+- **Œuvres** — cycle de vie de la consignation (`available` → `on_loan` → `sold` / `returned`), historique complet des statuts, respect du prix de réserve, limite de 50 œuvres actives par artiste
+- **Expositions & prêts** — disponibilité des œuvres automatiquement mise à jour
+- **Ventes** — transaction atomique (verrou ligne PostgreSQL), commission par paliers (40 / 35 / 30 %), facture + relevé artiste générés automatiquement à chaque vente
+- **Rapports** — tableaux de bord galerie, artiste et admin
+- **Interface web** — UI galerie complète (thème sombre, typographie Georgia/Outfit), connectée aux 40 cas d'usage métier
+
+---
+
+## Architecture
 
 ```
-users ─┬─< artists ─< artworks ─┬─< artwork_status_history
-       │                        ├─< exhibition_artworks >─ exhibitions
-       │                        ├─< loans
-       │                        └─< sales ── invoices
-       ├─< exhibitions
-       ├─< loans
-       ├─< sales
-       └─< refresh_tokens
-
-artists ─< artist_statements
+nest-ConsignArt/
+├── src/                        # API NestJS
+│   ├── auth/                   # JWT, guards, refresh tokens
+│   ├── users/                  # Gestion des comptes
+│   ├── artists/                # Module artistes
+│   ├── artworks/               # Module œuvres + historique statut
+│   ├── exhibitions/            # Module expositions
+│   ├── loans/                  # Module prêts
+│   ├── sales/                  # Module ventes + factures
+│   ├── reports/                # Tableaux de bord & relevés artistes
+│   └── common/                 # Guards, interceptors, filtres, pagination
+├── frontend/                   # App React/Vite
+│   ├── src/pages/              # 13 pages (Artworks, Sales, Exhibitions, …)
+│   ├── src/services/           # Clients API typés
+│   └── cypress/e2e/            # 10 suites de tests E2E (UC00–UC35)
+└── docker-compose.yml
 ```
 
-## Git conventions
+### Schéma de base de données
 
-Commits follow [Conventional Commits](https://www.conventionalcommits.org/) (`feat(scope): summary`, `fix(scope): summary`, `docs: ...`, `test: ...`, `ci: ...`).
+```
+users ──< artists ──< artworks ──< artwork_status_history
+      │                  ├──< exhibition_artworks >── exhibitions
+      │                  ├──< loans
+      │                  └──< sales ──── invoices
+      ├──< exhibitions
+      ├──< loans
+      ├──< sales
+      └──< refresh_tokens
 
-## Prerequisites
+artists ──< artist_statements
+```
 
-- Docker and Docker Compose
+---
 
-## 1. Clone
+## Choix techniques
+
+| Choix | Raison |
+|---|---|
+| PostgreSQL | Verrou ligne nécessaire pour la transaction de vente, intégrité relationnelle sur 11 tables |
+| JWT access + refresh | Accès stateless ; refresh tokens stockés hachés et révocables |
+| Vitest | Plus rapide que Jest pour cette taille de projet, support natif ESM/TS via SWC |
+| Admin bootstrappé par script | L'auto-inscription en `admin` contournerait entièrement le workflow de validation galerie |
+| `forbidNonWhitelisted: true` | ValidationPipe strict : tout champ non déclaré dans le DTO provoque une erreur 400 |
+
+---
+
+## Prérequis
+
+- Docker & Docker Compose
+- Node.js ≥ 20 (pour les tests Cypress en local)
+
+---
+
+## Démarrage rapide
+
+### 1. Cloner
 
 ```bash
 git clone https://github.com/Adamsad97/nest-ConsignArt.git
 cd nest-ConsignArt
 ```
 
-## 2. Configure environment variables
+### 2. Variables d'environnement
 
 ```bash
 cp .env.example .env
 ```
 
-Default values work out of the box with Docker Compose.
+Les valeurs par défaut fonctionnent directement avec Docker Compose.
 
-## 3. Start the project
+### 3. Lancer le projet
 
 ```bash
 docker compose up --build
 ```
 
-Starts all three services in one command:
+| Service | URL |
+|---|---|
+| API | http://localhost:3000/api/v1 |
+| Swagger | http://localhost:3000/api/docs |
+| Frontend | http://localhost:5173 |
+| pgAdmin | http://localhost:5050 |
 
-| Service      | URL                            |
-| ------------ | ------------------------------ |
-| API          | http://localhost:3000/api/v1   |
-| Swagger docs | http://localhost:3000/api/docs |
-| pgAdmin      | http://localhost:5050          |
+Le schéma de base de données est créé automatiquement au premier démarrage.
 
-The database schema is created automatically on first boot (development mode).
-
-Other useful commands: `docker compose up -d` (background), `docker compose logs -f api`. See step 9 to stop and clean up.
-
-## 4. Database migrations (optional)
-
-Only needed to build the schema from migrations instead of the automatic dev sync (e.g. for a production-like setup).
+### 4. Créer le premier compte admin
 
 ```bash
-npm run migration:run        # apply pending migrations
-npm run migration:generate   # generate a migration from entity changes
-npm run migration:revert     # roll back the last migration
+# Dans un autre terminal (la DB doit être démarrée)
+docker compose exec api npm run seed:admin
 ```
 
-## 5. Create the first admin account
+Idempotent : sans effet si l'email existe déjà. Les identifiants sont définis dans `.env` (`ADMIN_EMAIL` / `ADMIN_PASSWORD`).
 
-Admin accounts can't be created through `POST /auth/register` (only `gallery`, `artist` and `collector` can self-register — see [Technical choices](#technical-choices)). Bootstrap the first admin from `ADMIN_EMAIL`/`ADMIN_PASSWORD` in your `.env`:
+---
+
+## Migrations (optionnel)
+
+Pour un setup production-like à la place de la synchronisation automatique :
 
 ```bash
-npm run seed:admin
+npm run migration:run        # appliquer les migrations en attente
+npm run migration:generate   # générer depuis les changements d'entités
+npm run migration:revert     # annuler la dernière migration
 ```
 
-Safe to re-run: it's a no-op if that email already has an account.
+---
 
-## 6. Interact with the API
+## Flux typique d'utilisation
 
-All routes are prefixed with `/api/v1`. Explore and test every endpoint interactively via Swagger: **http://localhost:3000/api/docs**
+1. **Inscription galerie** → `POST /auth/register` (rôle `gallery`)
+2. **Activation par admin** → `PATCH /users/:id/activate`
+3. **Galerie se connecte** → `POST /auth/login`
+4. **Enregistrer un artiste** → `POST /artists`
+5. **Consigner une œuvre** → `POST /artworks`
+6. **Créer une exposition** → `POST /exhibitions` + ajouter des œuvres
+7. **Enregistrer une vente** → `POST /sales` (génère facture + relevé artiste)
+8. **Consulter les rapports** → `GET /reports/dashboard/*`
 
-Typical flow: register a gallery (`POST /auth/register`) → log in as the seeded admin (`POST /auth/login`) and activate it (`PATCH /users/:id/activate`) → the gallery logs in (`POST /auth/login`), registers an artist (`POST /artists`) and consigns an artwork (`POST /artworks`) → a sale is recorded (`POST /sales`), which also generates an invoice and an artist statement → dashboards are available under `GET /reports/dashboard/*`.
+Toutes les routes sont explorables via Swagger : **http://localhost:3000/api/docs**
 
-## 7. Inspect the data
+---
 
-Open **pgAdmin** at http://localhost:5050 (`admin@consignart.com` / `admin`), add a server pointing to host `db`, port `5432`, using the credentials from `.env` — or connect any SQL client to `localhost:5434` directly.
+## Tests
 
-## 8. Run tests
+### Tests unitaires (Vitest)
 
 ```bash
-npm test          # unit tests
-npm run test:e2e  # integration test (requires the db container running, see step 3)
+npm test
 ```
 
-## 9. Stop and clean up
+### Tests E2E (Cypress)
+
+Les suites couvrent **77 cas d'usage** répartis en 10 fichiers :
+
+| Spec | Cas d'usage |
+|---|---|
+| `00-setup` | Santé de l'API, seed admin |
+| `01-auth` | UC1–UC7 : inscription, login, refresh, logout |
+| `02-artworks-public` | UC8–UC12 : consultation publique des œuvres |
+| `03-artists` | UC13–UC14 : gestion des artistes |
+| `04-artworks-manage` | UC15–UC18 : CRUD œuvres, changement de statut |
+| `05-exhibitions` | UC19–UC27 : expositions |
+| `06-loans` | UC28–UC31 : prêts |
+| `07-sales` | UC32–UC35 : ventes & factures |
+| `08-reports` | UC36–UC40 : rapports & dashboards |
+| `09-access-control` | Contrôle d'accès par rôle |
 
 ```bash
-docker compose down              # stop and remove containers (keeps images and data)
-docker compose down -v           # also delete the database volume (wipes all data)
-docker compose down --rmi all    # also delete the images built for this project
-docker compose down -v --rmi all # full cleanup: containers, volumes and images
+# Depuis le dossier frontend/ (Docker doit être démarré)
+cd frontend
+npx cypress run                    # toute la suite (headless)
+npx cypress open                   # mode interactif
+npx cypress run --spec "cypress/e2e/07-sales.cy.ts"  # une suite spécifique
 ```
+
+---
+
+## Inspecter la base de données
+
+Ouvrir **pgAdmin** sur http://localhost:5050 (`admin@consignart.com` / `admin`), ajouter un serveur pointant vers l'hôte `db`, port `5432`, avec les identifiants du `.env` — ou connecter n'importe quel client SQL sur `localhost:5434`.
+
+---
+
+## Arrêt et nettoyage
+
+```bash
+docker compose down              # arrêter (conserve images et données)
+docker compose down -v           # + supprimer le volume DB (efface toutes les données)
+docker compose down --rmi all    # + supprimer les images Docker du projet
+docker compose down -v --rmi all # nettoyage complet
+```
+
+---
+
+## Conventions Git
+
+Les commits suivent [Conventional Commits](https://www.conventionalcommits.org/) :  
+`feat(scope): summary` · `fix(scope): summary` · `docs: …` · `test: …` · `ci: …`
+
+---
+
+## Branches
+
+| Branche | Rôle |
+|---|---|
+| `main` | Production stable |
+| `develop` | Intégration continue |
+| `arole` | Branche de travail courante |
