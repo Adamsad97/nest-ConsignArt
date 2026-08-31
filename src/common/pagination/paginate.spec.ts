@@ -62,8 +62,6 @@ describe('findMaybePaginated', () => {
 
     const result = await findMaybePaginated(repository, {}, { page: 1 });
 
-    expect(result).toEqual(
-      expect.objectContaining({ total: 0, pageCount: 1 }),
-    );
+    expect(result).toEqual(expect.objectContaining({ total: 0, pageCount: 1 }));
   });
 });

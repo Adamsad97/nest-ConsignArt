@@ -5,10 +5,7 @@ import { User } from './entities/user.entity';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { Role } from './enums/role.enum';
-import {
-  findMaybePaginated,
-  Paginated,
-} from '../common/pagination/paginate';
+import { findMaybePaginated, Paginated } from '../common/pagination/paginate';
 import { PaginationQueryDto } from '../common/pagination/pagination-query.dto';
 
 @Injectable()

@@ -212,9 +212,9 @@ describe('ReportsService', () => {
     });
 
     it('throws BadRequestException when an admin omits galleryId', async () => {
-      await expect(
-        service.getGalleryDashboard(mockAdminUser),
-      ).rejects.toThrow(BadRequestException);
+      await expect(service.getGalleryDashboard(mockAdminUser)).rejects.toThrow(
+        BadRequestException,
+      );
     });
 
     it('throws BadRequestException when an admin targets a non-gallery user', async () => {

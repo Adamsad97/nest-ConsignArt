@@ -18,10 +18,7 @@ import { AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { Role } from '../users/enums/role.enum';
 import { BusinessRuleViolationException } from '../common/exceptions/business-rule-violation.exception';
 import { User } from '../users/entities/user.entity';
-import {
-  findMaybePaginated,
-  Paginated,
-} from '../common/pagination/paginate';
+import { findMaybePaginated, Paginated } from '../common/pagination/paginate';
 import { PaginationQueryDto } from '../common/pagination/pagination-query.dto';
 
 interface CommissionResult {

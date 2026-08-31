@@ -20,10 +20,7 @@ import { Role } from '../users/enums/role.enum';
 import { ArtworkStatus } from '../artworks/enums/artwork-status.enum';
 import { ExhibitionStatus } from './entities/enums/exhibition-status.enum';
 import { BusinessRuleViolationException } from '../common/exceptions/business-rule-violation.exception';
-import {
-  findMaybePaginated,
-  Paginated,
-} from '../common/pagination/paginate';
+import { findMaybePaginated, Paginated } from '../common/pagination/paginate';
 import { PaginationQueryDto } from '../common/pagination/pagination-query.dto';
 
 @Injectable()

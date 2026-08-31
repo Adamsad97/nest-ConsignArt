@@ -14,10 +14,7 @@ import { UsersService } from '../users/users.service';
 import type { AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { Role } from '../users/enums/role.enum';
 import { User } from '../users/entities/user.entity';
-import {
-  findMaybePaginated,
-  Paginated,
-} from '../common/pagination/paginate';
+import { findMaybePaginated, Paginated } from '../common/pagination/paginate';
 import { PaginationQueryDto } from '../common/pagination/pagination-query.dto';
 
 @Injectable()

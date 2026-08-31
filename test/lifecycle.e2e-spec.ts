@@ -343,9 +343,9 @@ describe('ConsignArt exhibitions, loans and reports (e2e)', () => {
         .get('/api/v1/loans')
         .set('Authorization', `Bearer ${galleryToken}`)
         .expect(200);
-      expect(res.body.data.some((loan: { id: string }) => loan.id === loanId)).toBe(
-        true,
-      );
+      expect(
+        res.body.data.some((loan: { id: string }) => loan.id === loanId),
+      ).toBe(true);
     });
 
     it('returning the loan makes the artwork AVAILABLE again', async () => {
@@ -433,4 +433,4 @@ describe('ConsignArt exhibitions, loans and reports (e2e)', () => {
       expect(listRes.body.data.length).toBeGreaterThanOrEqual(1);
     });
   });
-})
+});
