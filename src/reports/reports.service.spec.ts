@@ -1,5 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { ReportsService } from './reports.service';
 import { ArtistStatement } from './entities/artist-statement.entity';
@@ -16,29 +20,47 @@ const mockGalleryUser = {
   role: Role.GALLERY,
 };
 
+const mockOtherGalleryUser = {
+  id: 'gallery-2',
+  email: 'other@test.com',
+  role: Role.GALLERY,
+};
+
+const mockArtistUser = {
+  id: 'artist-user-1',
+  email: 'artist@test.com',
+  role: Role.ARTIST,
+};
+
+const mockAdminUser = {
+  id: 'admin-1',
+  email: 'admin@test.com',
+  role: Role.ADMIN,
+};
+
 const mockStatementsRepository = {
-  create: jest.fn((data: any) => data),
-  save: jest.fn((data: any) => Promise.resolve({ id: 'statement-1', ...data })),
-  find: jest.fn(),
+  create: vi.fn((data: any) => data),
+  save: vi.fn((data: any) => Promise.resolve({ id: 'statement-1', ...data })),
+  find: vi.fn(),
 };
 
 const mockSalesRepository = {
-  find: jest.fn(),
-  count: jest.fn(),
+  find: vi.fn(),
+  count: vi.fn(),
 };
 
 const mockArtistsRepository = {
-  findOne: jest.fn(),
+  findOne: vi.fn(),
 };
 
-const mockUsersService = { findOne: jest.fn(), findAll: jest.fn() };
-const mockArtworksService = { findAll: jest.fn() };
+const mockUsersService = { findOne: vi.fn(), findAll: vi.fn() };
+const mockArtworksService = { findAll: vi.fn() };
 
 describe('ReportsService', () => {
   let service: ReportsService;
 
   beforeEach(async () => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -69,19 +91,37 @@ describe('ReportsService', () => {
           'missing',
           new Date('2026-01-01'),
           new Date('2026-01-31'),
-          mockGalleryUser as any,
+          mockGalleryUser,
         ),
       ).rejects.toThrow(NotFoundException);
+    });
+
+    it('throws ForbiddenException when the caller is a different gallery', async () => {
+      mockArtistsRepository.findOne.mockResolvedValue({
+        id: 'artist-1',
+        gallery: { id: 'gallery-1' },
+        user: null,
+      });
+
+      await expect(
+        service.generateArtistStatement(
+          'artist-1',
+          new Date('2026-01-01'),
+          new Date('2026-01-31'),
+          mockOtherGalleryUser,
+        ),
+      ).rejects.toThrow(ForbiddenException);
     });
 
     it('aggregates sales into a statement for the period', async () => {
       mockArtistsRepository.findOne.mockResolvedValue({
         id: 'artist-1',
         gallery: { id: 'gallery-1' },
+        user: null,
       });
       mockSalesRepository.find.mockResolvedValue([
         {
-          id: 's-1',
+          id: 'sale-1',
           salePrice: 1000,
           galleryCommission: 400,
           artistAmount: 600,
@@ -89,7 +129,7 @@ describe('ReportsService', () => {
           artwork: { title: 'Piece A' },
         },
         {
-          id: 's-2',
+          id: 'sale-2',
           salePrice: 2000,
           galleryCommission: 800,
           artistAmount: 1200,
@@ -122,7 +162,7 @@ describe('ReportsService', () => {
           salePrice: 1000,
           saleDate: '2026-01-10',
           artwork: {
-            artist: { id: 'a-1', firstName: 'Pablo', lastName: 'Picasso' },
+            artist: { id: 'artist-1', firstName: 'Pablo', lastName: 'Picasso' },
           },
         },
         {
@@ -130,28 +170,28 @@ describe('ReportsService', () => {
           salePrice: 2000,
           saleDate: '2026-02-15',
           artwork: {
-            artist: { id: 'a-1', firstName: 'Pablo', lastName: 'Picasso' },
+            artist: { id: 'artist-1', firstName: 'Pablo', lastName: 'Picasso' },
           },
         },
       ]);
       mockArtworksService.findAll.mockResolvedValue([
         {
-          id: 'aw-1',
+          id: 'artwork-1',
           gallery: { id: 'gallery-1' },
           status: ArtworkStatus.SOLD,
         },
         {
-          id: 'aw-2',
+          id: 'artwork-2',
           gallery: { id: 'gallery-1' },
           status: ArtworkStatus.SOLD,
         },
         {
-          id: 'aw-3',
+          id: 'artwork-3',
           gallery: { id: 'gallery-1' },
           status: ArtworkStatus.AVAILABLE,
         },
         {
-          id: 'aw-4',
+          id: 'artwork-4',
           gallery: { id: 'gallery-2' },
           status: ArtworkStatus.SOLD,
         },
@@ -165,28 +205,101 @@ describe('ReportsService', () => {
         { name: 'Pablo Picasso', count: 2, revenue: 1200 },
       ]);
       expect(result.monthlySales).toEqual([
-        { month: '2026-01', artworksSold: 1, revenue: 1000 },
-        { month: '2026-02', artworksSold: 1, revenue: 2000 },
+        { month: '2026-01', artworksSold: 1, revenue: 400 },
+        { month: '2026-02', artworksSold: 1, revenue: 800 },
       ]);
       expect(result.turnoverRate).toBeCloseTo(66.67, 1);
+    });
+
+    it('throws BadRequestException when an admin omits galleryId', async () => {
+      await expect(service.getGalleryDashboard(mockAdminUser)).rejects.toThrow(
+        BadRequestException,
+      );
+    });
+
+    it('throws BadRequestException when an admin targets a non-gallery user', async () => {
+      mockUsersService.findOne.mockResolvedValue({
+        id: 'artist-user-1',
+        role: Role.ARTIST,
+      });
+
+      await expect(
+        service.getGalleryDashboard(mockAdminUser, 'artist-user-1'),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('lets an admin view a specific gallery dashboard via galleryId', async () => {
+      mockUsersService.findOne.mockResolvedValue({
+        id: 'gallery-1',
+        role: Role.GALLERY,
+      });
+      mockSalesRepository.count.mockResolvedValue(0);
+      mockSalesRepository.find.mockResolvedValue([]);
+      mockArtworksService.findAll.mockResolvedValue([]);
+
+      const result = await service.getGalleryDashboard(
+        mockAdminUser,
+        'gallery-1',
+      );
+
+      expect(result.totalSales).toBe(0);
     });
   });
 
   describe('getArtistDashboard', () => {
+    it('throws ForbiddenException when the caller is an unrelated artist', async () => {
+      mockArtistsRepository.findOne.mockResolvedValue({
+        id: 'artist-1',
+        gallery: { id: 'gallery-1' },
+        user: { id: 'artist-user-1' },
+      });
+
+      await expect(
+        service.getArtistDashboard('artist-1', {
+          id: 'artist-user-2',
+          email: 'other-artist@test.com',
+          role: Role.ARTIST,
+        }),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('allows the linked artist user to view their own dashboard', async () => {
+      mockArtistsRepository.findOne.mockResolvedValue({
+        id: 'artist-1',
+        gallery: { id: 'gallery-1' },
+        user: { id: 'artist-user-1' },
+      });
+      mockSalesRepository.find.mockResolvedValue([]);
+      mockArtworksService.findAll.mockResolvedValue([]);
+
+      await expect(
+        service.getArtistDashboard('artist-1', mockArtistUser),
+      ).resolves.toBeDefined();
+    });
+
     it('sums earnings and counts available artworks for the artist', async () => {
+      mockArtistsRepository.findOne.mockResolvedValue({
+        id: 'artist-1',
+        gallery: { id: 'gallery-1' },
+        user: null,
+      });
       mockSalesRepository.find.mockResolvedValue([
         { artistAmount: 600, galleryCommission: 400 },
         { artistAmount: 1200, galleryCommission: 800 },
       ]);
       mockArtworksService.findAll.mockResolvedValue([
         {
-          id: 'aw-1',
+          id: 'artwork-1',
           artist: { id: 'artist-1' },
           status: ArtworkStatus.AVAILABLE,
         },
-        { id: 'aw-2', artist: { id: 'artist-1' }, status: ArtworkStatus.SOLD },
         {
-          id: 'aw-3',
+          id: 'artwork-2',
+          artist: { id: 'artist-1' },
+          status: ArtworkStatus.SOLD,
+        },
+        {
+          id: 'artwork-3',
           artist: { id: 'artist-2' },
           status: ArtworkStatus.AVAILABLE,
         },
@@ -212,8 +325,8 @@ describe('ReportsService', () => {
         { salePrice: 2000, galleryCommission: 800 },
       ]);
       mockUsersService.findAll.mockResolvedValue([
-        { id: 'u-1', isActive: true },
-        { id: 'u-2', isActive: false },
+        { id: 'user-1', isActive: true },
+        { id: 'user-2', isActive: false },
       ]);
 
       const result = await service.getAdminDashboard(mockGalleryUser);

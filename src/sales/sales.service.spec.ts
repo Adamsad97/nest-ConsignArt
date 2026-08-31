@@ -13,6 +13,12 @@ const mockGalleryUser = {
   role: Role.GALLERY,
 };
 
+const mockCollectorUser = {
+  id: 'collector-1',
+  email: 'collector@test.com',
+  role: Role.COLLECTOR,
+};
+
 const mockArtwork = {
   id: 'artwork-1',
   title: 'Test Artwork',
@@ -22,24 +28,42 @@ const mockArtwork = {
   artist: { id: 'artist-1', firstName: 'Pablo', lastName: 'Picasso' },
 };
 
+const mockQueryBuilder = {
+  innerJoinAndSelect: vi.fn().mockReturnThis(),
+  where: vi.fn().mockReturnThis(),
+  setLock: vi.fn().mockReturnThis(),
+  getOne: vi.fn(),
+};
+
 const mockManager = {
-  findOne: jest.fn(),
-  create: jest.fn((entity: any, data: any) => ({ ...data, id: 'new-id' })),
-  save: jest.fn((entity: any, data: any) =>
+  createQueryBuilder: vi.fn(() => mockQueryBuilder),
+  findOne: vi.fn(),
+  create: vi.fn((entity: any, data: any) => ({ ...data, id: 'new-id' })),
+  save: vi.fn((entity: any, data: any) =>
     Promise.resolve({ ...data, id: 'saved-id' }),
   ),
-  update: jest.fn().mockResolvedValue({}),
+  update: vi.fn().mockResolvedValue({}),
 };
 
 const mockDataSource = {
-  transaction: jest.fn((cb: (manager: any) => Promise<any>) => cb(mockManager)),
+  transaction: vi.fn((cb: (manager: any) => Promise<any>) => cb(mockManager)),
+};
+
+const mockSalesRepository = {
+  find: vi.fn(),
+  findOne: vi.fn(),
+  count: vi.fn(),
+};
+
+const mockInvoicesRepository = {
+  findOne: vi.fn(),
 };
 
 describe('SalesService', () => {
   let service: SalesService;
 
   beforeEach(async () => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -47,11 +71,11 @@ describe('SalesService', () => {
         { provide: getDataSourceToken(), useValue: mockDataSource },
         {
           provide: getRepositoryToken(Sale),
-          useValue: { find: jest.fn(), findOne: jest.fn(), count: jest.fn() },
+          useValue: mockSalesRepository,
         },
         {
           provide: getRepositoryToken(Invoice),
-          useValue: { findOne: jest.fn() },
+          useValue: mockInvoicesRepository,
         },
       ],
     }).compile();
@@ -97,7 +121,7 @@ describe('SalesService', () => {
 
   describe('processSale', () => {
     it('throws BusinessRuleViolationException when artwork is ON_LOAN', async () => {
-      mockManager.findOne.mockResolvedValueOnce({
+      mockQueryBuilder.getOne.mockResolvedValueOnce({
         ...mockArtwork,
         status: ArtworkStatus.ON_LOAN,
       });
@@ -124,15 +148,54 @@ describe('SalesService', () => {
           },
           mockGalleryUser,
         );
-      } catch (e) {
-        if (e instanceof BusinessRuleViolationException) {
-          expect(e.rule).toBe('ARTWORK_ON_LOAN');
+      } catch (error) {
+        if (error instanceof BusinessRuleViolationException) {
+          expect(error.rule).toBe('ARTWORK_ON_LOAN');
+        }
+      }
+    });
+
+    it('throws BusinessRuleViolationException when artwork is already SOLD', async () => {
+      mockQueryBuilder.getOne.mockResolvedValueOnce({
+        ...mockArtwork,
+        status: ArtworkStatus.SOLD,
+      });
+
+      await expect(
+        service.processSale(
+          {
+            artworkId: 'artwork-1',
+            buyer: 'Jean',
+            buyerContact: 'j@mail.fr',
+            salePrice: 6000,
+          },
+          mockGalleryUser,
+        ),
+      ).rejects.toThrow(BusinessRuleViolationException);
+
+      mockQueryBuilder.getOne.mockResolvedValueOnce({
+        ...mockArtwork,
+        status: ArtworkStatus.SOLD,
+      });
+      try {
+        await service.processSale(
+          {
+            artworkId: 'artwork-1',
+            buyer: 'Jean',
+            buyerContact: 'j@mail.fr',
+            salePrice: 6000,
+          },
+          mockGalleryUser,
+        );
+      } catch (error) {
+        if (error instanceof BusinessRuleViolationException) {
+          expect(error.rule).toBe('ARTWORK_NOT_AVAILABLE');
         }
       }
     });
 
     it('throws BusinessRuleViolationException when price is below reserve', async () => {
-      mockManager.findOne.mockResolvedValueOnce({
+      mockQueryBuilder.getOne.mockResolvedValueOnce({
         ...mockArtwork,
         status: ArtworkStatus.AVAILABLE,
         reservePrice: 8000,
@@ -152,12 +215,43 @@ describe('SalesService', () => {
     });
 
     it('processes a valid sale in a transaction', async () => {
-      mockManager.findOne
-        .mockResolvedValueOnce({
-          ...mockArtwork,
-          status: ArtworkStatus.AVAILABLE,
-        })
-        .mockResolvedValueOnce({ id: 'gallery-1', email: 'g@test.com' });
+      mockQueryBuilder.getOne.mockResolvedValueOnce({
+        ...mockArtwork,
+        status: ArtworkStatus.AVAILABLE,
+      });
+
+      const result = await service.processSale(
+        {
+          artworkId: 'artwork-1',
+          buyer: 'Jean',
+          buyerContact: 'j@mail.fr',
+          salePrice: 10000,
+        },
+        mockGalleryUser,
+      );
+
+      expect(result.artwork.status).toBe(ArtworkStatus.SOLD);
+      expect(result.gallery).toEqual(mockArtwork.gallery);
+      expect(mockManager.create).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          previousStatus: ArtworkStatus.AVAILABLE,
+          newStatus: ArtworkStatus.SOLD,
+        }),
+      );
+      expect(mockManager.save).toHaveBeenCalledTimes(4);
+      expect(mockManager.update).toHaveBeenCalledWith(
+        expect.anything(),
+        'artwork-1',
+        { status: ArtworkStatus.SOLD },
+      );
+    });
+
+    it('generates an artist statement for the sale in the same transaction', async () => {
+      mockQueryBuilder.getOne.mockResolvedValueOnce({
+        ...mockArtwork,
+        status: ArtworkStatus.AVAILABLE,
+      });
 
       await service.processSale(
         {
@@ -169,11 +263,63 @@ describe('SalesService', () => {
         mockGalleryUser,
       );
 
-      expect(mockManager.save).toHaveBeenCalledTimes(3);
-      expect(mockManager.update).toHaveBeenCalledWith(
+      expect(mockManager.create).toHaveBeenCalledWith(
         expect.anything(),
-        'artwork-1',
-        { status: ArtworkStatus.SOLD },
+        expect.objectContaining({
+          totalSalesCount: 1,
+          totalSaleAmount: 10000,
+          totalCommission: 3500,
+          netAmount: 6500,
+        }),
+      );
+    });
+
+    it('throws BadRequestException when a gallery omits buyer/buyerContact', async () => {
+      mockQueryBuilder.getOne.mockResolvedValueOnce({
+        ...mockArtwork,
+        status: ArtworkStatus.AVAILABLE,
+      });
+
+      await expect(
+        service.processSale(
+          { artworkId: 'artwork-1', salePrice: 10000 },
+          mockGalleryUser,
+        ),
+      ).rejects.toThrow('buyer and buyerContact are required');
+    });
+
+    it('lets a collector buy for themselves from any gallery, deriving buyer info from their account', async () => {
+      mockQueryBuilder.getOne.mockResolvedValueOnce({
+        ...mockArtwork,
+        status: ArtworkStatus.AVAILABLE,
+      });
+      mockManager.findOne.mockResolvedValueOnce({
+        id: 'collector-1',
+        firstName: 'Marie',
+        lastName: 'Curie',
+        email: 'collector@test.com',
+      });
+
+      const result = await service.processSale(
+        { artworkId: 'artwork-1', salePrice: 10000 },
+        mockCollectorUser,
+      );
+
+      expect(result.buyer).toBe('Marie Curie');
+      expect(result.buyerContact).toBe('collector@test.com');
+      expect(result.buyerAccount).toEqual(
+        expect.objectContaining({ id: 'collector-1' }),
+      );
+    });
+  });
+
+  describe('findAll', () => {
+    it('scopes results to the collector own purchases', async () => {
+      await service.findAll(mockCollectorUser);
+      expect(mockSalesRepository.find).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { buyerAccount: { id: 'collector-1' } },
+        }),
       );
     });
   });

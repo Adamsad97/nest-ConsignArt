@@ -2,13 +2,14 @@ import {
   Injectable,
   UnauthorizedException,
   ConflictException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { JwtService, JwtSignOptions } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { randomUUID } from 'crypto';
-import * as bcrypt from 'bcryptjs';
+import * as bcrypt from 'bcrypt';
 import { UsersService } from '../users/users.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
@@ -27,6 +28,10 @@ export class AuthService {
   ) {}
 
   async register(registerDto: RegisterDto) {
+    if (registerDto.role === Role.ADMIN) {
+      throw new ForbiddenException('Admin accounts cannot be self-registered');
+    }
+
     const existingUser = await this.usersService.findByEmail(registerDto.email);
     if (existingUser) {
       throw new ConflictException('An account with this email already exists');
@@ -112,6 +117,13 @@ export class AuthService {
       expiresIn: (this.configService.get<string>('JWT_ACCESS_EXPIRATION') ??
         '15m') as JwtSignOptions['expiresIn'],
     });
+    // Read the actual iat/exp back off the token we just signed, rather than
+    // re-parsing JWT_ACCESS_EXPIRATION ourselves, so this figure can never
+    // drift out of sync with what the token really carries.
+    const { iat, exp } = this.jwtService.decode<{ iat: number; exp: number }>(
+      accessToken,
+    );
+    const expiresIn = exp - iat;
 
     const rawRefreshToken = randomUUID();
     const tokenHash = await bcrypt.hash(rawRefreshToken, 10);
@@ -130,7 +142,7 @@ export class AuthService {
       access_token: accessToken,
       refresh_token: rawRefreshToken,
       token_type: 'Bearer',
-      expires_in: 900,
+      expires_in: expiresIn,
     };
   }
 }

@@ -3,6 +3,7 @@ import {
   ForbiddenException,
   BadRequestException,
   NotFoundException,
+  ConflictException,
 } from '@nestjs/common';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { ArtworksService } from './artworks.service';
@@ -11,6 +12,7 @@ import { ArtworkStatusHistory } from './entities/artwork-status-history.entity';
 import { ArtworkStatus } from './enums/artwork-status.enum';
 import { ArtistsService } from '../artists/artists.service';
 import { UsersService } from '../users/users.service';
+import { CategoriesService } from '../categories/categories.service';
 import { Role } from '../users/enums/role.enum';
 import { BusinessRuleViolationException } from '../common/exceptions/business-rule-violation.exception';
 
@@ -36,27 +38,30 @@ const mockArtwork = {
 };
 
 const mockArtworksRepository = {
-  count: jest.fn(),
-  create: jest.fn((data: any) => ({ ...data, id: 'new-id' })),
-  save: jest.fn((data: any) => Promise.resolve(data)),
-  find: jest.fn(),
-  findOne: jest.fn(),
-  remove: jest.fn(),
+  count: vi.fn(),
+  create: vi.fn((data: any) => ({ ...data, id: 'new-id' })),
+  save: vi.fn((data: any) => Promise.resolve(data)),
+  find: vi.fn(),
+  findOne: vi.fn(),
+  remove: vi.fn(),
 };
 
 const mockStatusHistoryRepository = {
-  create: jest.fn((data: any) => data),
-  save: jest.fn((data: any) => Promise.resolve(data)),
+  create: vi.fn((data: any) => data),
+  save: vi.fn((data: any) => Promise.resolve(data)),
 };
 
-const mockArtistsService = { findOne: jest.fn() };
-const mockUsersService = { findOne: jest.fn() };
+const mockArtistsService = { findOne: vi.fn() };
+const mockUsersService = { findOne: vi.fn() };
+const mockCategoriesService = {
+  findByIds: vi.fn(() => Promise.resolve([])),
+};
 
 describe('ArtworksService', () => {
   let service: ArtworksService;
 
   beforeEach(async () => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -71,6 +76,7 @@ describe('ArtworksService', () => {
         },
         { provide: ArtistsService, useValue: mockArtistsService },
         { provide: UsersService, useValue: mockUsersService },
+        { provide: CategoriesService, useValue: mockCategoriesService },
       ],
     }).compile();
 
@@ -86,7 +92,7 @@ describe('ArtworksService', () => {
       });
 
       await expect(
-        service.create({ artistId: 'artist-1' } as any, mockGalleryUser as any),
+        service.create({ artistId: 'artist-1' } as any, mockGalleryUser),
       ).rejects.toThrow(ForbiddenException);
     });
 
@@ -129,7 +135,7 @@ describe('ArtworksService', () => {
         service.changeStatus(
           'artwork-1',
           ArtworkStatus.SOLD,
-          mockOtherGalleryUser as any,
+          mockOtherGalleryUser,
         ),
       ).rejects.toThrow(ForbiddenException);
     });
@@ -141,7 +147,7 @@ describe('ArtworksService', () => {
         service.changeStatus(
           'artwork-1',
           ArtworkStatus.AVAILABLE,
-          mockGalleryUser as any,
+          mockGalleryUser,
         ),
       ).rejects.toThrow(BadRequestException);
     });
@@ -156,7 +162,7 @@ describe('ArtworksService', () => {
         service.changeStatus(
           'artwork-1',
           ArtworkStatus.RETURNED,
-          mockGalleryUser as any,
+          mockGalleryUser,
         ),
       ).rejects.toThrow(BusinessRuleViolationException);
     });
@@ -183,12 +189,84 @@ describe('ArtworksService', () => {
     });
   });
 
+  describe('addCategory', () => {
+    it('throws ForbiddenException when the caller does not own the artwork', async () => {
+      mockArtworksRepository.findOne.mockResolvedValue({
+        ...mockArtwork,
+        categories: [],
+      });
+
+      await expect(
+        service.addCategory('artwork-1', 'category-1', mockOtherGalleryUser),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('throws ConflictException when the category is already assigned', async () => {
+      mockArtworksRepository.findOne.mockResolvedValue({
+        ...mockArtwork,
+        categories: [{ id: 'category-1', name: 'Impressionism' }],
+      });
+
+      await expect(
+        service.addCategory('artwork-1', 'category-1', mockGalleryUser),
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it('attaches the category to the artwork', async () => {
+      mockArtworksRepository.findOne.mockResolvedValue({
+        ...mockArtwork,
+        categories: [],
+      });
+      mockCategoriesService.findByIds.mockResolvedValueOnce([
+        { id: 'category-1', name: 'Impressionism' },
+      ]);
+
+      const result = await service.addCategory(
+        'artwork-1',
+        'category-1',
+        mockGalleryUser,
+      );
+
+      expect(result.categories).toEqual([
+        { id: 'category-1', name: 'Impressionism' },
+      ]);
+    });
+  });
+
+  describe('removeCategory', () => {
+    it('throws ForbiddenException when the caller does not own the artwork', async () => {
+      mockArtworksRepository.findOne.mockResolvedValue({
+        ...mockArtwork,
+        categories: [{ id: 'category-1', name: 'Impressionism' }],
+      });
+
+      await expect(
+        service.removeCategory('artwork-1', 'category-1', mockOtherGalleryUser),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('removes the category from the artwork', async () => {
+      mockArtworksRepository.findOne.mockResolvedValue({
+        ...mockArtwork,
+        categories: [{ id: 'category-1', name: 'Impressionism' }],
+      });
+
+      const result = await service.removeCategory(
+        'artwork-1',
+        'category-1',
+        mockGalleryUser,
+      );
+
+      expect(result.categories).toEqual([]);
+    });
+  });
+
   describe('remove', () => {
     it('throws ForbiddenException when the caller does not own the artwork', async () => {
       mockArtworksRepository.findOne.mockResolvedValue({ ...mockArtwork });
 
       await expect(
-        service.remove('artwork-1', mockOtherGalleryUser as any),
+        service.remove('artwork-1', mockOtherGalleryUser),
       ).rejects.toThrow(ForbiddenException);
     });
 

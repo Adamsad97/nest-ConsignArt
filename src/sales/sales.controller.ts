@@ -1,8 +1,16 @@
-import { Controller, Get, Post, Param, Body, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Param,
+  Body,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { SalesService } from './sales.service';
 import { CreateSaleDto } from './dto/create-sale.dto';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PaginationQueryDto } from '../common/pagination/pagination-query.dto';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import {
@@ -13,27 +21,33 @@ import { Role } from '../users/enums/role.enum';
 
 @ApiTags('Sales')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(RolesGuard)
 @Controller('sales')
 export class SalesController {
   constructor(private readonly salesService: SalesService) {}
 
   @Post()
-  @Roles(Role.GALLERY, Role.ADMIN)
-  @ApiOperation({ summary: 'Process a sale (atomic transaction)' })
+  @Roles(Role.GALLERY, Role.ADMIN, Role.COLLECTOR)
+  @ApiOperation({
+    summary:
+      'Process a sale (atomic transaction). A collector buys for themselves; a gallery/admin records a sale on behalf of a buyer.',
+  })
   create(@Body() dto: CreateSaleDto, @CurrentUser() user: AuthenticatedUser) {
     return this.salesService.processSale(dto, user);
   }
 
   @Get()
-  @Roles(Role.GALLERY, Role.ADMIN, Role.ARTIST)
+  @Roles(Role.GALLERY, Role.ADMIN, Role.ARTIST, Role.COLLECTOR)
   @ApiOperation({ summary: 'List sales (scoped by role)' })
-  findAll(@CurrentUser() user: AuthenticatedUser) {
-    return this.salesService.findAll(user);
+  findAll(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() pagination: PaginationQueryDto,
+  ) {
+    return this.salesService.findAll(user, pagination);
   }
 
   @Get(':id')
-  @Roles(Role.GALLERY, Role.ADMIN, Role.ARTIST)
+  @Roles(Role.GALLERY, Role.ADMIN, Role.ARTIST, Role.COLLECTOR)
   @ApiOperation({ summary: 'Get a sale by ID' })
   findOne(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
     return this.salesService.findOne(id, user);

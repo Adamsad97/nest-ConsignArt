@@ -3,16 +3,16 @@ import { PipeTransform, Injectable, BadRequestException } from '@nestjs/common';
 @Injectable()
 export class PriceNormalizationPipe implements PipeTransform<number, number> {
   transform(value: number): number {
-    const num = Number(value);
+    const numericPrice = Number(value);
 
-    if (isNaN(num)) {
+    if (isNaN(numericPrice)) {
       throw new BadRequestException('Price must be a valid number');
     }
 
-    if (num < 0) {
+    if (numericPrice < 0) {
       throw new BadRequestException('Price cannot be negative');
     }
 
-    return Math.round(num * 100) / 100;
+    return Math.round(numericPrice * 100) / 100;
   }
 }

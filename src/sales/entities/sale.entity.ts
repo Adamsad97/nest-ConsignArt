@@ -46,6 +46,10 @@ export class Sale {
   @JoinColumn({ name: 'galleryId' })
   gallery: User;
 
+  @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'buyerAccountId' })
+  buyerAccount: User | null;
+
   @OneToOne(() => Invoice, (invoice) => invoice.sale, { cascade: true })
   invoice: Invoice;
 

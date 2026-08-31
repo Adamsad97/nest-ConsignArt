@@ -7,13 +7,13 @@ import { Role } from '../users/enums/role.enum';
 import { ForbiddenException } from '@nestjs/common';
 
 const mockGallery = {
-  id: 'g-1',
+  id: 'gallery-1',
   email: 'gallery@test.com',
   role: Role.GALLERY,
   isActive: true,
 };
 const mockArtist = {
-  id: 'a-1',
+  id: 'artist-1',
   firstName: 'Pablo',
   lastName: 'Picasso',
   isActive: true,
@@ -22,21 +22,21 @@ const mockArtist = {
 };
 
 const mockRepo = {
-  create: jest.fn((data: any) => ({ ...data, id: 'new-id' })),
-  save: jest.fn((data: any) => Promise.resolve(data)),
-  find: jest.fn(),
-  findOne: jest.fn(),
+  create: vi.fn((data: any) => ({ ...data, id: 'new-id' })),
+  save: vi.fn((data: any) => Promise.resolve(data)),
+  find: vi.fn(),
+  findOne: vi.fn(),
 };
 
 const mockUsersService = {
-  findOne: jest.fn(),
+  findOne: vi.fn(),
 };
 
 describe('ArtistsService', () => {
   let service: ArtistsService;
 
   beforeEach(async () => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -67,13 +67,13 @@ describe('ArtistsService', () => {
     it('returns only gallery artists for gallery user', async () => {
       mockRepo.find.mockResolvedValue([mockArtist]);
       const galleryUser = {
-        id: 'g-1',
+        id: 'gallery-1',
         email: 'gallery@test.com',
         role: Role.GALLERY,
       };
       await service.findAll(galleryUser);
       expect(mockRepo.find).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { gallery: { id: 'g-1' } } }),
+        expect.objectContaining({ where: { gallery: { id: 'gallery-1' } } }),
       );
     });
   });
@@ -84,7 +84,7 @@ describe('ArtistsService', () => {
       mockRepo.findOne.mockResolvedValue(null);
 
       const galleryUser = {
-        id: 'g-1',
+        id: 'gallery-1',
         email: 'gallery@test.com',
         role: Role.GALLERY,
       };
@@ -99,17 +99,57 @@ describe('ArtistsService', () => {
     });
   });
 
-  describe('remove', () => {
-    it('soft-deletes by setting isActive to false', async () => {
-      const gallery = { id: 'g-1' };
-      mockRepo.findOne.mockResolvedValue({ ...mockArtist, gallery });
+  describe('activate', () => {
+    it('reactivates a previously deactivated artist', async () => {
+      const gallery = { id: 'gallery-1' };
+      mockRepo.findOne.mockResolvedValue({
+        ...mockArtist,
+        gallery,
+        isActive: false,
+      });
 
       const galleryUser = {
-        id: 'g-1',
+        id: 'gallery-1',
         email: 'gallery@test.com',
         role: Role.GALLERY,
       };
-      await service.remove('a-1', galleryUser);
+      const result = await service.activate('artist-1', galleryUser);
+
+      expect(result.isActive).toBe(true);
+      expect(mockRepo.save).toHaveBeenCalledWith(
+        expect.objectContaining({ isActive: true }),
+      );
+    });
+
+    it('throws ForbiddenException when a different gallery tries to activate', async () => {
+      mockRepo.findOne.mockResolvedValue({
+        ...mockArtist,
+        gallery: { id: 'other-gallery' },
+        isActive: false,
+      });
+
+      const galleryUser = {
+        id: 'gallery-1',
+        email: 'gallery@test.com',
+        role: Role.GALLERY,
+      };
+      await expect(service.activate('artist-1', galleryUser)).rejects.toThrow(
+        ForbiddenException,
+      );
+    });
+  });
+
+  describe('remove', () => {
+    it('soft-deletes by setting isActive to false', async () => {
+      const gallery = { id: 'gallery-1' };
+      mockRepo.findOne.mockResolvedValue({ ...mockArtist, gallery });
+
+      const galleryUser = {
+        id: 'gallery-1',
+        email: 'gallery@test.com',
+        role: Role.GALLERY,
+      };
+      await service.remove('artist-1', galleryUser);
 
       expect(mockRepo.save).toHaveBeenCalledWith(
         expect.objectContaining({ isActive: false }),
@@ -123,11 +163,11 @@ describe('ArtistsService', () => {
       });
 
       const galleryUser = {
-        id: 'g-1',
+        id: 'gallery-1',
         email: 'gallery@test.com',
         role: Role.GALLERY,
       };
-      await expect(service.remove('a-1', galleryUser)).rejects.toThrow(
+      await expect(service.remove('artist-1', galleryUser)).rejects.toThrow(
         ForbiddenException,
       );
     });

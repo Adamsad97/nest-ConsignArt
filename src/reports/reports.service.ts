@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Between, Repository } from 'typeorm';
 import { ArtistStatement } from './entities/artist-statement.entity';
@@ -8,6 +13,7 @@ import { AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { UsersService } from '../users/users.service';
 import { ArtworksService } from '../artworks/artworks.service';
 import { ArtworkStatus } from '../artworks/enums/artwork-status.enum';
+import { Role } from '../users/enums/role.enum';
 
 @Injectable()
 export class ReportsService {
@@ -22,17 +28,46 @@ export class ReportsService {
     private readonly artworksService: ArtworksService,
   ) {}
 
+  /**
+   * Loads the artist and enforces that the caller is allowed to see its
+   * reports: the artist themself, their gallery, or an admin. Reports carry
+   * financial data (earnings, commissions), so this is checked independently
+   * of route-level @Roles() on every artist-scoped report endpoint.
+   */
+  private async assertArtistAccess(
+    artistId: string,
+    currentUser: AuthenticatedUser,
+  ): Promise<Artist> {
+    const artist = await this.artistsRepository.findOne({
+      where: { id: artistId },
+      relations: { gallery: true, user: true },
+    });
+    if (!artist) {
+      throw new NotFoundException(`Artist ${artistId} not found`);
+    }
+
+    const hasAccess =
+      currentUser.role === Role.ADMIN ||
+      (currentUser.role === Role.GALLERY &&
+        artist.gallery.id === currentUser.id) ||
+      (currentUser.role === Role.ARTIST && artist.user?.id === currentUser.id);
+
+    if (!hasAccess) {
+      throw new ForbiddenException(
+        "You do not have access to this artist's reports",
+      );
+    }
+
+    return artist;
+  }
+
   async generateArtistStatement(
     artistId: string,
     periodStart: Date,
     periodEnd: Date,
     currentUser: AuthenticatedUser,
   ): Promise<ArtistStatement> {
-    const artist = await this.artistsRepository.findOne({
-      where: { id: artistId },
-      relations: { gallery: true },
-    });
-    if (!artist) throw new NotFoundException(`Artist ${artistId} not found`);
+    const artist = await this.assertArtistAccess(artistId, currentUser);
 
     const sales = await this.salesRepository.find({
       where: {
@@ -43,22 +78,25 @@ export class ReportsService {
     });
 
     const totalSaleAmount = sales.reduce(
-      (sum, s) => sum + Number(s.salePrice),
+      (sum, sale) => sum + Number(sale.salePrice),
       0,
     );
     const totalCommission = sales.reduce(
-      (sum, s) => sum + Number(s.galleryCommission),
+      (sum, sale) => sum + Number(sale.galleryCommission),
       0,
     );
-    const netAmount = sales.reduce((sum, s) => sum + Number(s.artistAmount), 0);
+    const netAmount = sales.reduce(
+      (sum, sale) => sum + Number(sale.artistAmount),
+      0,
+    );
 
-    const items = sales.map((s) => ({
-      saleId: s.id,
-      artworkTitle: s.artwork.title,
-      saleDate: s.saleDate,
-      salePrice: s.salePrice,
-      commission: s.galleryCommission,
-      net: s.artistAmount,
+    const items = sales.map((sale) => ({
+      saleId: sale.id,
+      artworkTitle: sale.artwork.title,
+      saleDate: sale.saleDate,
+      salePrice: sale.salePrice,
+      commission: sale.galleryCommission,
+      net: sale.artistAmount,
     }));
 
     const year = periodStart.getFullYear();
@@ -86,8 +124,42 @@ export class ReportsService {
     return this.statementsRepository.save(statement);
   }
 
-  async getGalleryDashboard(currentUser: AuthenticatedUser) {
-    const galleryId = currentUser.id;
+  /**
+   * Resolves which gallery's dashboard is being requested. A gallery user
+   * always sees their own dashboard (any `galleryId` they pass is ignored,
+   * so they can't peek at another gallery's figures). An admin has no
+   * gallery of their own, so they must pass `galleryId` explicitly.
+   */
+  private async resolveGalleryId(
+    currentUser: AuthenticatedUser,
+    galleryId?: string,
+  ): Promise<string> {
+    if (currentUser.role !== Role.ADMIN) {
+      return currentUser.id;
+    }
+
+    if (!galleryId) {
+      throw new BadRequestException(
+        'galleryId query parameter is required for admins',
+      );
+    }
+
+    const gallery = await this.usersService.findOne(galleryId);
+    if (gallery.role !== Role.GALLERY) {
+      throw new BadRequestException('Target user must have role GALLERY');
+    }
+
+    return galleryId;
+  }
+
+  async getGalleryDashboard(
+    currentUser: AuthenticatedUser,
+    requestedGalleryId?: string,
+  ) {
+    const galleryId = await this.resolveGalleryId(
+      currentUser,
+      requestedGalleryId,
+    );
 
     const totalSales = await this.salesRepository.count({
       where: { gallery: { id: galleryId } },
@@ -98,8 +170,11 @@ export class ReportsService {
       relations: { artwork: { artist: true } },
     });
 
+    // The gallery never owns the artwork it sells on consignment, so its
+    // actual revenue is the commission it keeps, not the gross sale price.
+    // `monthlySales[].revenue` below uses the same basis for consistency.
     const totalRevenue = salesData.reduce(
-      (sum, s) => sum + Number(s.galleryCommission),
+      (sum, sale) => sum + Number(sale.galleryCommission),
       0,
     );
 
@@ -130,12 +205,15 @@ export class ReportsService {
         revenue: 0,
       };
       monthEntry.artworksSold++;
-      monthEntry.revenue += Number(sale.salePrice);
+      monthEntry.revenue += Number(sale.galleryCommission);
       monthlySalesMap.set(month, monthEntry);
     }
 
     const topArtists = Array.from(artistSalesMap.values())
-      .sort((a, b) => b.revenue - a.revenue)
+      .sort(
+        (firstArtistStats, secondArtistStats) =>
+          secondArtistStats.revenue - firstArtistStats.revenue,
+      )
       .slice(0, 5);
 
     const monthlySales = Array.from(monthlySalesMap.entries())
@@ -144,13 +222,15 @@ export class ReportsService {
         artworksSold: data.artworksSold,
         revenue: Math.round(data.revenue * 100) / 100,
       }))
-      .sort((a, b) => a.month.localeCompare(b.month));
+      .sort((firstMonthEntry, secondMonthEntry) =>
+        firstMonthEntry.month.localeCompare(secondMonthEntry.month),
+      );
 
     const galleryArtworks = (await this.artworksService.findAll()).filter(
-      (a) => a.gallery?.id === galleryId,
+      (artwork) => artwork.gallery?.id === galleryId,
     );
     const soldCount = galleryArtworks.filter(
-      (a) => a.status === ArtworkStatus.SOLD,
+      (artwork) => artwork.status === ArtworkStatus.SOLD,
     ).length;
     const turnoverRate =
       galleryArtworks.length > 0
@@ -166,7 +246,9 @@ export class ReportsService {
     };
   }
 
-  async getArtistDashboard(artistId: string, _currentUser: AuthenticatedUser) {
+  async getArtistDashboard(artistId: string, currentUser: AuthenticatedUser) {
+    await this.assertArtistAccess(artistId, currentUser);
+
     const salesData = await this.salesRepository.find({
       where: { artwork: { artist: { id: artistId } } },
       relations: { artwork: true },
@@ -174,17 +256,19 @@ export class ReportsService {
 
     const totalSales = salesData.length;
     const totalEarnings = salesData.reduce(
-      (sum, s) => sum + Number(s.artistAmount),
+      (sum, sale) => sum + Number(sale.artistAmount),
       0,
     );
     const totalCommissionPaid = salesData.reduce(
-      (sum, s) => sum + Number(s.galleryCommission),
+      (sum, sale) => sum + Number(sale.galleryCommission),
       0,
     );
 
     const allArtworks = await this.artworksService.findAll();
     const availableArtworks = allArtworks.filter(
-      (a) => a.artist?.id === artistId && a.status === ArtworkStatus.AVAILABLE,
+      (artwork) =>
+        artwork.artist?.id === artistId &&
+        artwork.status === ArtworkStatus.AVAILABLE,
     );
 
     return {
@@ -199,25 +283,30 @@ export class ReportsService {
     const totalSales = await this.salesRepository.count();
     const allSales = await this.salesRepository.find();
     const totalVolume = allSales.reduce(
-      (sum, s) => sum + Number(s.salePrice),
+      (sum, sale) => sum + Number(sale.salePrice),
       0,
     );
     const totalCommissions = allSales.reduce(
-      (sum, s) => sum + Number(s.galleryCommission),
+      (sum, sale) => sum + Number(sale.galleryCommission),
       0,
     );
     const totalUsers = await this.usersService.findAll();
 
     return {
       totalUsers: totalUsers.length,
-      activeUsers: totalUsers.filter((u) => u.isActive).length,
+      activeUsers: totalUsers.filter((user) => user.isActive).length,
       totalSales,
       totalVolume: Math.round(totalVolume * 100) / 100,
       totalCommissions: Math.round(totalCommissions * 100) / 100,
     };
   }
 
-  findStatementsByArtist(artistId: string): Promise<ArtistStatement[]> {
+  async findStatementsByArtist(
+    artistId: string,
+    currentUser: AuthenticatedUser,
+  ): Promise<ArtistStatement[]> {
+    await this.assertArtistAccess(artistId, currentUser);
+
     return this.statementsRepository.find({
       where: { artist: { id: artistId } },
       relations: { artist: true, gallery: true },

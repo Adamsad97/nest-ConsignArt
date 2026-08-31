@@ -6,6 +6,7 @@ import {
   UpdateDateColumn,
   OneToMany,
 } from 'typeorm';
+import { Exclude } from 'class-transformer';
 import { Role } from '../enums/role.enum';
 import { Artwork } from '../../artworks/entities/artwork.entity';
 import { RefreshToken } from '../../auth/entities/refresh-token.entity';
@@ -18,6 +19,7 @@ export class User {
   @Column({ unique: true })
   email: string;
 
+  @Exclude()
   @Column()
   password: string;
 
@@ -36,7 +38,7 @@ export class User {
   @OneToMany(() => Artwork, (artwork) => artwork.gallery)
   artworks: Artwork[];
 
-  @OneToMany(() => RefreshToken, (rt) => rt.user)
+  @OneToMany(() => RefreshToken, (refreshToken) => refreshToken.user)
   refreshTokens: RefreshToken[];
 
   @CreateDateColumn()

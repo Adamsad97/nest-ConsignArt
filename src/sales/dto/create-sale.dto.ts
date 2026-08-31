@@ -15,15 +15,25 @@ export class CreateSaleDto {
   @IsNotEmpty()
   artworkId: string;
 
-  @ApiProperty({ example: 'Jean Dupont' })
+  @ApiPropertyOptional({
+    example: 'Jean Dupont',
+    description:
+      'Required when the caller is a gallery/admin. Ignored for a collector self-purchase (derived from their account).',
+  })
   @IsString()
   @IsNotEmpty()
-  buyer: string;
+  @IsOptional()
+  buyer?: string;
 
-  @ApiProperty({ example: 'jean.dupont@email.com' })
+  @ApiPropertyOptional({
+    example: 'jean.dupont@email.com',
+    description:
+      'Required when the caller is a gallery/admin. Ignored for a collector self-purchase (derived from their account).',
+  })
   @IsString()
   @IsNotEmpty()
-  buyerContact: string;
+  @IsOptional()
+  buyerContact?: string;
 
   @ApiProperty({ example: 12000.0 })
   @IsNumber()

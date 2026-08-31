@@ -20,6 +20,8 @@ import { Role } from '../users/enums/role.enum';
 import { ArtworkStatus } from '../artworks/enums/artwork-status.enum';
 import { ExhibitionStatus } from './entities/enums/exhibition-status.enum';
 import { BusinessRuleViolationException } from '../common/exceptions/business-rule-violation.exception';
+import { findMaybePaginated, Paginated } from '../common/pagination/paginate';
+import { PaginationQueryDto } from '../common/pagination/pagination-query.dto';
 
 @Injectable()
 export class ExhibitionsService {
@@ -95,16 +97,20 @@ export class ExhibitionsService {
     });
   }
 
-  findAll(currentUser: AuthenticatedUser): Promise<Exhibition[]> {
-    if (currentUser.role === Role.ADMIN) {
-      return this.exhibitionsRepository.find({
+  findAll(
+    currentUser: AuthenticatedUser,
+    pagination?: PaginationQueryDto,
+  ): Promise<Exhibition[] | Paginated<Exhibition>> {
+    return findMaybePaginated(
+      this.exhibitionsRepository,
+      {
+        ...(currentUser.role !== Role.ADMIN && {
+          where: { gallery: { id: currentUser.id } },
+        }),
         relations: { gallery: true, exhibitionArtworks: { artwork: true } },
-      });
-    }
-    return this.exhibitionsRepository.find({
-      where: { gallery: { id: currentUser.id } },
-      relations: { gallery: true, exhibitionArtworks: { artwork: true } },
-    });
+      },
+      pagination,
+    );
   }
 
   async findOne(
@@ -136,7 +142,18 @@ export class ExhibitionsService {
     currentUser: AuthenticatedUser,
   ): Promise<Exhibition> {
     const exhibition = await this.findOne(id, currentUser);
-    Object.assign(exhibition, dto);
+
+    exhibition.title = dto.title ?? exhibition.title;
+    exhibition.description = dto.description ?? exhibition.description;
+    exhibition.location = dto.location ?? exhibition.location;
+    exhibition.virtualLink = dto.virtualLink ?? exhibition.virtualLink;
+    exhibition.startDate = dto.startDate
+      ? new Date(dto.startDate)
+      : exhibition.startDate;
+    exhibition.endDate = dto.endDate
+      ? new Date(dto.endDate)
+      : exhibition.endDate;
+
     return this.exhibitionsRepository.save(exhibition);
   }
 
@@ -174,13 +191,14 @@ export class ExhibitionsService {
       );
     }
 
-    const ea = this.exhibitionArtworkRepository.create({
+    const exhibitionArtwork = this.exhibitionArtworkRepository.create({
       exhibition,
       artwork,
       displayOrder: dto.displayOrder,
       notes: dto.notes,
     });
-    const saved = await this.exhibitionArtworkRepository.save(ea);
+    const saved =
+      await this.exhibitionArtworkRepository.save(exhibitionArtwork);
 
     if (exhibition.status === ExhibitionStatus.ONGOING) {
       await this.artworksService.changeStatus(
@@ -189,6 +207,7 @@ export class ExhibitionsService {
         currentUser,
         `Added to exhibition: ${exhibition.title}`,
       );
+      saved.artwork.status = ArtworkStatus.ON_LOAN;
     }
 
     return saved;
@@ -201,14 +220,14 @@ export class ExhibitionsService {
   ): Promise<void> {
     await this.findOne(exhibitionId, currentUser);
 
-    const ea = await this.exhibitionArtworkRepository.findOne({
+    const exhibitionArtwork = await this.exhibitionArtworkRepository.findOne({
       where: { exhibition: { id: exhibitionId }, artwork: { id: artworkId } },
     });
-    if (!ea) {
+    if (!exhibitionArtwork) {
       throw new NotFoundException('Artwork not found in this exhibition');
     }
 
-    await this.exhibitionArtworkRepository.remove(ea);
+    await this.exhibitionArtworkRepository.remove(exhibitionArtwork);
   }
 
   async updateStatus(
@@ -227,27 +246,29 @@ export class ExhibitionsService {
         );
       }
 
-      for (const ea of exhibition.exhibitionArtworks) {
-        if (ea.artwork.status === ArtworkStatus.AVAILABLE) {
+      for (const exhibitionArtwork of exhibition.exhibitionArtworks) {
+        if (exhibitionArtwork.artwork.status === ArtworkStatus.AVAILABLE) {
           await this.artworksService.changeStatus(
-            ea.artwork.id,
+            exhibitionArtwork.artwork.id,
             ArtworkStatus.ON_LOAN,
             currentUser,
             `Exhibition started: ${exhibition.title}`,
           );
+          exhibitionArtwork.artwork.status = ArtworkStatus.ON_LOAN;
         }
       }
     }
 
     if (status === ExhibitionStatus.CLOSED) {
-      for (const ea of exhibition.exhibitionArtworks ?? []) {
-        if (ea.artwork.status === ArtworkStatus.ON_LOAN) {
+      for (const exhibitionArtwork of exhibition.exhibitionArtworks ?? []) {
+        if (exhibitionArtwork.artwork.status === ArtworkStatus.ON_LOAN) {
           await this.artworksService.changeStatus(
-            ea.artwork.id,
+            exhibitionArtwork.artwork.id,
             ArtworkStatus.AVAILABLE,
             currentUser,
             `Exhibition closed: ${exhibition.title}`,
           );
+          exhibitionArtwork.artwork.status = ArtworkStatus.AVAILABLE;
         }
       }
     }

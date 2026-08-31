@@ -5,12 +5,13 @@ import {
   Patch,
   Param,
   Body,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { LoansService } from './loans.service';
+import { PaginationQueryDto } from '../common/pagination/pagination-query.dto';
 import { CreateLoanDto } from './dto/create-loan.dto';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import {
@@ -21,7 +22,7 @@ import { Role } from '../users/enums/role.enum';
 
 @ApiTags('Loans')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(RolesGuard)
 @Controller('loans')
 export class LoansController {
   constructor(private readonly loansService: LoansService) {}
@@ -36,8 +37,11 @@ export class LoansController {
   @Get()
   @Roles(Role.GALLERY, Role.ADMIN)
   @ApiOperation({ summary: 'List loans' })
-  findAll(@CurrentUser() user: AuthenticatedUser) {
-    return this.loansService.findAll(user);
+  findAll(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() pagination: PaginationQueryDto,
+  ) {
+    return this.loansService.findAll(user, pagination);
   }
 
   @Get(':id')

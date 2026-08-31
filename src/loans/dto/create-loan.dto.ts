@@ -13,15 +13,10 @@ export class CreateLoanDto {
   @IsNotEmpty()
   artworkId: string;
 
-  @ApiProperty({ example: "Musée d'Orsay" })
-  @IsString()
+  @ApiProperty({ description: 'UUID of the borrowing gallery' })
+  @IsUUID()
   @IsNotEmpty()
-  borrower: string;
-
-  @ApiProperty({ example: 'contact@musee-orsay.fr' })
-  @IsString()
-  @IsNotEmpty()
-  borrowerContact: string;
+  borrowerGalleryId: string;
 
   @ApiPropertyOptional({ example: 'Temporary exhibition loan' })
   @IsString()

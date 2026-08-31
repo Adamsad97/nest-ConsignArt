@@ -10,15 +10,10 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
-import {
-  ApiTags,
-  ApiOperation,
-  ApiBearerAuth,
-  ApiQuery,
-} from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { UsersService } from './users.service';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { ListUsersQueryDto } from './dto/list-users-query.dto';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import {
@@ -29,7 +24,7 @@ import { Role } from './enums/role.enum';
 
 @ApiTags('Users')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(RolesGuard)
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
@@ -37,13 +32,9 @@ export class UsersController {
   @Get()
   @Roles(Role.ADMIN)
   @ApiOperation({ summary: 'List all users (admin only)' })
-  @ApiQuery({ name: 'role', enum: Role, required: false })
-  @ApiQuery({ name: 'isActive', type: Boolean, required: false })
-  findAll(@Query('role') role?: Role, @Query('isActive') isActive?: string) {
-    const filters: { role?: Role; isActive?: boolean } = {};
-    if (role) filters.role = role;
-    if (isActive !== undefined) filters.isActive = isActive === 'true';
-    return this.usersService.findAll(filters);
+  findAll(@Query() query: ListUsersQueryDto) {
+    const { role, isActive, page, limit } = query;
+    return this.usersService.findAll({ role, isActive }, { page, limit });
   }
 
   @Get(':id')

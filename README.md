@@ -1,74 +1,83 @@
 # ConsignArt
 
-## Prerequisites
+API REST pour la gestion de dépôt-vente d'œuvres d'art entre artistes et galeries. NestJS, TypeORM, PostgreSQL.
 
-- Docker and Docker Compose
+## Prérequis
 
-## 1. Clone
+Docker et Docker Compose (rien d'autre à installer).
+
+## 1. Cloner et configurer
 
 ```bash
 git clone https://github.com/Adamsad97/nest-ConsignArt.git
 cd nest-ConsignArt
-```
-
-## 2. Configure environment variables
-
-```bash
 cp .env.example .env
 ```
 
-Default values work out of the box with Docker Compose.
+Les valeurs par défaut du `.env.example` fonctionnent telles quelles avec Docker Compose.
 
-## 3. Start the project
+## 2. Démarrer
 
 ```bash
 docker compose up --build
 ```
 
-Starts all three services in one command:
+Ça lance l'API, PostgreSQL et pgAdmin. Le schéma de base est créé automatiquement au premier démarrage — rien d'autre à faire.
 
-| Service      | URL                            |
-| ------------ | ------------------------------ |
-| API          | http://localhost:3000/api/v1   |
-| Swagger docs | http://localhost:3000/api/docs |
-| pgAdmin      | http://localhost:5050          |
+Une fois démarré :
 
-The database schema is created automatically on first boot (development mode).
+- API : http://localhost:3000/api/v1
+- Documentation interactive Swagger : **http://localhost:3000/api/docs**
+- pgAdmin : http://localhost:5050
 
-Other useful commands: `docker compose up -d` (background), `docker compose logs -f api`. See step 8 to stop and clean up.
+## 3. Créer le compte admin
 
-## 4. Database migrations (optional)
-
-Only needed to build the schema from migrations instead of the automatic dev sync (e.g. for a production-like setup).
+Un admin ne peut pas s'inscrire via l'API (seuls `gallery`, `artist`, `collector` le peuvent — c'est une règle métier volontaire). Il faut le créer une fois via un script, **depuis l'hôte** (pas dans le conteneur) :
 
 ```bash
-npm run migration:run        # apply pending migrations
-npm run migration:generate   # generate a migration from entity changes
-npm run migration:revert     # roll back the last migration
+npm install
+npm run seed:admin
 ```
 
-## 5. Interact with the API
+Ça crée le compte à partir de `ADMIN_EMAIL` / `ADMIN_PASSWORD` du `.env`. Sans risque à relancer plusieurs fois.
 
-All routes are prefixed with `/api/v1`. Explore and test every endpoint interactively via Swagger: **http://localhost:3000/api/docs**
+## 4. Tester l'application
 
-Typical flow: register a gallery (`POST /auth/register`) → an admin activates it (`PATCH /users/:id/activate`) → the gallery logs in (`POST /auth/login`), registers an artist (`POST /artists`) and consigns an artwork (`POST /artworks`) → a sale is recorded (`POST /sales`) → dashboards are available under `GET /reports/dashboard/*`.
+Le plus rapide : ouvrir **http://localhost:3000/api/docs** (Swagger) et exécuter les routes directement dans le navigateur.
 
-## 6. Inspect the data
+Pour un scénario complet déjà prêt (inscription des rôles, règles métier, vente, dashboards...), deux options équivalentes dans `docs/demo/` :
 
-Open **pgAdmin** at http://localhost:5050 (`admin@consignart.com` / `admin`), add a server pointing to host `db`, port `5432`, using the credentials from `.env` — or connect any SQL client to `localhost:5434` directly.
+- **Script shell** — rejoue tout le parcours en une commande :
+  ```bash
+  bash docs/demo/demo-script.sh
+  ```
+- **Collection Postman** — `docs/demo/ConsignArt.postman_collection.json` (à importer dans Postman ; renseigner `adminEmail`/`adminPassword` dans les variables de la collection avec les valeurs du `.env` avant de lancer)
 
-## 7. Run tests
+Les deux créent automatiquement ces comptes de démonstration :
+
+- Galerie — `emanuel.reanault@consignart.fr` / `Reanault2026!`
+- Galerie 2 — `daniella.boaba@consignart.fr` / `Boaba2026!`
+- Artiste — `sophie.girard@consignart.fr` / `Girard2026!`
+- Collectionneur — `jean.laurent@consignart.fr` / `Laurent2026!`
+
+Le guide pas-à-pas complet (avec ce qu'il faut dire à chaque étape) est dans `docs/demo/SOUTENANCE-GUIDE.md`.
+
+⚠️ Ces emails sont fixes : si vous rejouez le script/la collection sans repartir d'une base propre, l'inscription échouera (`409`, email déjà pris) — repartez d'une base propre (étape 6) ou changez les emails à la main.
+
+## 5. Inspecter les données (optionnel)
+
+pgAdmin : http://localhost:5050 (`admin@consignart.com` / `admin`) — ajouter un serveur pointant vers l'hôte `db`, port `5432`, avec les identifiants du `.env`. Ou connecter n'importe quel client SQL à `localhost:5434` directement.
+
+## 6. Arrêter et nettoyer
 
 ```bash
-npm test          # unit tests
-npm run test:e2e  # integration test (requires the db container running, see step 3)
+docker compose down              # arrête et supprime les conteneurs (garde images et données)
+docker compose down -v           # supprime aussi le volume de la base (efface toutes les données)
 ```
 
-## 8. Stop and clean up
+## Tests automatisés
 
 ```bash
-docker compose down              # stop and remove containers (keeps images and data)
-docker compose down -v           # also delete the database volume (wipes all data)
-docker compose down --rmi all    # also delete the images built for this project
-docker compose down -v --rmi all # full cleanup: containers, volumes and images
+npm test          # tests unitaires
+npm run test:e2e  # tests d'intégration (nécessite les conteneurs démarrés, voir étape 2)
 ```

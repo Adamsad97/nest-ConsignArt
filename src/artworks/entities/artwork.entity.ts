@@ -6,6 +6,8 @@ import {
   UpdateDateColumn,
   ManyToOne,
   OneToMany,
+  ManyToMany,
+  JoinTable,
   Index,
   JoinColumn,
 } from 'typeorm';
@@ -13,6 +15,7 @@ import { ArtworkStatus } from '../enums/artwork-status.enum';
 import { User } from '../../users/entities/user.entity';
 import { Artist } from '../../artists/entities/artist.entity';
 import { ArtworkStatusHistory } from './artwork-status-history.entity';
+import { Category } from '../../categories/entities/category.entity';
 
 @Entity('artworks')
 export class Artwork {
@@ -74,6 +77,14 @@ export class Artwork {
 
   @OneToMany(() => ArtworkStatusHistory, (history) => history.artwork)
   statusHistory: ArtworkStatusHistory[];
+
+  @ManyToMany(() => Category, (category) => category.artworks)
+  @JoinTable({
+    name: 'artwork_categories',
+    joinColumn: { name: 'artworkId', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'categoryId', referencedColumnName: 'id' },
+  })
+  categories: Category[];
 
   @CreateDateColumn()
   createdAt: Date;

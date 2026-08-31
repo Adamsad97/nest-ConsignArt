@@ -14,6 +14,8 @@ import { UsersService } from '../users/users.service';
 import type { AuthenticatedUser } from '../common/decorators/current-user.decorator';
 import { Role } from '../users/enums/role.enum';
 import { User } from '../users/entities/user.entity';
+import { findMaybePaginated, Paginated } from '../common/pagination/paginate';
+import { PaginationQueryDto } from '../common/pagination/pagination-query.dto';
 
 @Injectable()
 export class ArtistsService {
@@ -60,16 +62,20 @@ export class ArtistsService {
     return this.artistsRepository.save(artist);
   }
 
-  findAll(currentUser: AuthenticatedUser): Promise<Artist[]> {
-    if (currentUser.role === Role.ADMIN) {
-      return this.artistsRepository.find({
+  findAll(
+    currentUser: AuthenticatedUser,
+    pagination?: PaginationQueryDto,
+  ): Promise<Artist[] | Paginated<Artist>> {
+    return findMaybePaginated(
+      this.artistsRepository,
+      {
+        ...(currentUser.role !== Role.ADMIN && {
+          where: { gallery: { id: currentUser.id } },
+        }),
         relations: { gallery: true, user: true },
-      });
-    }
-    return this.artistsRepository.find({
-      where: { gallery: { id: currentUser.id } },
-      relations: { gallery: true, user: true },
-    });
+      },
+      pagination,
+    );
   }
 
   async findOne(id: string, currentUser: AuthenticatedUser): Promise<Artist> {
@@ -118,6 +124,22 @@ export class ArtistsService {
       websiteUrl: dto.websiteUrl ?? artist.websiteUrl,
     });
 
+    return this.artistsRepository.save(artist);
+  }
+
+  async activate(id: string, currentUser: AuthenticatedUser): Promise<Artist> {
+    const artist = await this.findOne(id, currentUser);
+
+    if (
+      currentUser.role !== Role.ADMIN &&
+      artist.gallery.id !== currentUser.id
+    ) {
+      throw new ForbiddenException(
+        'You can only activate artists in your gallery',
+      );
+    }
+
+    artist.isActive = true;
     return this.artistsRepository.save(artist);
   }
 

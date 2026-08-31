@@ -1,5 +1,13 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication, ValidationPipe } from '@nestjs/common';
+import {
+  ClassSerializerInterceptor,
+  INestApplication,
+  ValidationPipe,
+} from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
+import { getRepositoryToken } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import * as bcrypt from 'bcrypt';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from './../src/app.module';
@@ -7,14 +15,45 @@ import { GlobalExceptionFilter } from '../src/common/filters/global-exception.fi
 import { BusinessRuleViolationFilter } from '../src/common/filters/business-rule-violation.filter';
 import { ResponseInterceptor } from '../src/common/interceptors/response.interceptor';
 import { LoggingInterceptor } from '../src/common/interceptors/logging.interceptor';
+import { User } from '../src/users/entities/user.entity';
+import { Role } from '../src/users/enums/role.enum';
+
+/**
+ * Admin accounts can't be self-registered via the public API (see
+ * SELF_REGISTERABLE_ROLES in RegisterDto), so e2e tests bootstrap one
+ * directly through the repository, exactly like `npm run seed:admin` does
+ * against a real database.
+ */
+async function seedAdminUser(
+  usersRepository: Repository<User>,
+  email: string,
+  password: string,
+): Promise<void> {
+  const hashedPassword = await bcrypt.hash(password, 10);
+  await usersRepository.save(
+    usersRepository.create({
+      email,
+      password: hashedPassword,
+      firstName: 'Admin',
+      lastName: 'ConsignArt',
+      role: Role.ADMIN,
+      isActive: true,
+    }),
+  );
+}
 
 describe('ConsignArt API (e2e)', () => {
   let app: INestApplication<App>;
+  let usersRepository: Repository<User>;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
+
+    usersRepository = moduleFixture.get<Repository<User>>(
+      getRepositoryToken(User),
+    );
 
     app = moduleFixture.createNestApplication();
     app.setGlobalPrefix('api/v1');
@@ -25,6 +64,7 @@ describe('ConsignArt API (e2e)', () => {
     app.useGlobalInterceptors(
       new LoggingInterceptor(),
       new ResponseInterceptor(),
+      new ClassSerializerInterceptor(app.get(Reflector)),
     );
     app.useGlobalPipes(
       new ValidationPipe({
@@ -63,6 +103,7 @@ describe('ConsignArt API (e2e)', () => {
     let galleryToken: string;
     let galleryUserId: string;
     let artistId: string;
+    let artworkId: string;
 
     it('registers a gallery account as inactive', async () => {
       const res = await request(app.getHttpServer())
@@ -87,17 +128,21 @@ describe('ConsignArt API (e2e)', () => {
         .expect(401);
     });
 
-    it('registers and logs in an admin account (active immediately)', async () => {
+    it('rejects self-registration with role=admin', async () => {
       await request(app.getHttpServer())
         .post('/api/v1/auth/register')
         .send({
-          email: adminEmail,
+          email: `blocked-admin-${suffix}@test.com`,
           password,
-          firstName: 'Admin',
-          lastName: 'ConsignArt',
+          firstName: 'Would-be',
+          lastName: 'Admin',
           role: 'admin',
         })
-        .expect(201);
+        .expect(400);
+    });
+
+    it('bootstraps an admin account directly (as the seed script would) and logs in', async () => {
+      await seedAdminUser(usersRepository, adminEmail, password);
 
       const res = await request(app.getHttpServer())
         .post('/api/v1/auth/login')
@@ -143,6 +188,7 @@ describe('ConsignArt API (e2e)', () => {
         })
         .expect(201);
 
+      artworkId = res.body.data.id;
       expect(res.body.data.price).toBe(1500.26);
       expect(res.body.data.reservePrice).toBe(1000.99);
     });
@@ -157,6 +203,58 @@ describe('ConsignArt API (e2e)', () => {
           (a: { title: string }) => a.title === 'Self-Portrait',
         ),
       ).toBe(true);
+    });
+
+    it('rejects a sale below the reserve price', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/api/v1/sales')
+        .set('Authorization', `Bearer ${galleryToken}`)
+        .send({
+          artworkId,
+          buyer: 'Jean Dupont',
+          buyerContact: 'jean@test.com',
+          salePrice: 500,
+        })
+        .expect(422);
+
+      expect(res.body.rule).toBe('BELOW_RESERVE_PRICE');
+    });
+
+    it('processes a sale with the correct commission tier and invoice, and updates the artwork status', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/api/v1/sales')
+        .set('Authorization', `Bearer ${galleryToken}`)
+        .send({
+          artworkId,
+          buyer: 'Jean Dupont',
+          buyerContact: 'jean@test.com',
+          salePrice: 1500.26,
+        })
+        .expect(201);
+
+      expect(res.body.data.commissionRate).toBe(0.4);
+      expect(res.body.data.galleryCommission).toBe(600.1);
+      expect(res.body.data.artistAmount).toBe(900.16);
+      expect(res.body.data.invoice.invoiceNumber).toMatch(/^INV-/);
+      expect(res.body.data.artwork.status).toBe('sold');
+
+      const artworkRes = await request(app.getHttpServer())
+        .get(`/api/v1/artworks/${artworkId}`)
+        .expect(200);
+      expect(artworkRes.body.data.status).toBe('sold');
+    });
+
+    it('refuses a second sale of the same artwork now that it is sold', async () => {
+      await request(app.getHttpServer())
+        .post('/api/v1/sales')
+        .set('Authorization', `Bearer ${galleryToken}`)
+        .send({
+          artworkId,
+          buyer: 'Someone Else',
+          buyerContact: 'someone@test.com',
+          salePrice: 1500.26,
+        })
+        .expect(422);
     });
 
     it('refuses another gallery from updating the artist it does not own', async () => {

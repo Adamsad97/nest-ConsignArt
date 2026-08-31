@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+env:
+  NODE_ENV: test
+  DB_HOST: localhost
+  DB_PORT: 5434
+  DB_USERNAME: consignart
+  DB_PASSWORD: consignart_secret
+  DB_DATABASE: consignart_db
+  JWT_SECRET: ci-secret
+  JWT_REFRESH_SECRET: ci-refresh-secret
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: consignart
+          POSTGRES_PASSWORD: consignart_secret
+          POSTGRES_DB: consignart_db
+        ports:
+          - 5434:5432
+        options: >-
+          --health-cmd "pg_isready -U consignart -d consignart_db"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run build
+      - run: npm run migration:run
+      - run: npm test
+      - run: npm run test:e2e
+
+  docker-build:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t consignart-api .

@@ -6,15 +6,17 @@ import {
   Delete,
   Param,
   Body,
+  Query,
   UseGuards,
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { ArtistsService } from './artists.service';
+import { PaginationQueryDto } from '../common/pagination/pagination-query.dto';
 import { CreateArtistDto } from './dto/create-artist.dto';
 import { UpdateArtistDto } from './dto/update-artist.dto';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { TransferArtistDto } from './dto/transfer-artist.dto';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import {
@@ -25,7 +27,7 @@ import { Role } from '../users/enums/role.enum';
 
 @ApiTags('Artists')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(RolesGuard)
 @Controller('artists')
 export class ArtistsController {
   constructor(private readonly artistsService: ArtistsService) {}
@@ -40,8 +42,11 @@ export class ArtistsController {
   @Get()
   @Roles(Role.ADMIN, Role.GALLERY)
   @ApiOperation({ summary: 'List artists (gallery sees own, admin sees all)' })
-  findAll(@CurrentUser() user: AuthenticatedUser) {
-    return this.artistsService.findAll(user);
+  findAll(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() pagination: PaginationQueryDto,
+  ) {
+    return this.artistsService.findAll(user, pagination);
   }
 
   @Get(':id')
@@ -69,10 +74,17 @@ export class ArtistsController {
   })
   transfer(
     @Param('id') id: string,
-    @Body('galleryId') galleryId: string,
+    @Body() dto: TransferArtistDto,
     @CurrentUser() user: AuthenticatedUser,
   ) {
-    return this.artistsService.transferGallery(id, galleryId, user);
+    return this.artistsService.transferGallery(id, dto.galleryId, user);
+  }
+
+  @Patch(':id/activate')
+  @Roles(Role.GALLERY, Role.ADMIN)
+  @ApiOperation({ summary: 'Reactivate a previously deactivated artist' })
+  activate(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.artistsService.activate(id, user);
   }
 
   @Delete(':id')
