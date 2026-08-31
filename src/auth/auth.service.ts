@@ -29,9 +29,7 @@ export class AuthService {
 
   async register(registerDto: RegisterDto) {
     if (registerDto.role === Role.ADMIN) {
-      throw new ForbiddenException(
-        'Admin accounts cannot be self-registered',
-      );
+      throw new ForbiddenException('Admin accounts cannot be self-registered');
     }
 
     const existingUser = await this.usersService.findByEmail(registerDto.email);
@@ -122,10 +120,9 @@ export class AuthService {
     // Read the actual iat/exp back off the token we just signed, rather than
     // re-parsing JWT_ACCESS_EXPIRATION ourselves, so this figure can never
     // drift out of sync with what the token really carries.
-    const { iat, exp } = this.jwtService.decode(accessToken) as {
-      iat: number;
-      exp: number;
-    };
+    const { iat, exp } = this.jwtService.decode<{ iat: number; exp: number }>(
+      accessToken,
+    );
     const expiresIn = exp - iat;
 
     const rawRefreshToken = randomUUID();
