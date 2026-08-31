@@ -33,7 +33,7 @@
           "request": {
             "method": "POST",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": { "mode": "raw", "raw": "{\n  \"email\": \"gallery.{{$timestamp}}@consignart-demo.fr\",\n  \"password\": \"GalerieP3rrotin!\",\n  \"firstName\": \"Emmanuel\",\n  \"lastName\": \"Perrotin\",\n  \"role\": \"gallery\"\n}" },
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"emanuel.reanault@consignart.fr\",\n  \"password\": \"Reanault2026!\",\n  \"firstName\": \"Emanuel\",\n  \"lastName\": \"Reanault\",\n  \"role\": \"gallery\"\n}" },
             "url": { "raw": "{{baseUrl}}/auth/register", "host": ["{{baseUrl}}"], "path": ["auth", "register"] },
             "description": "Attendu: 201, isActive=false (galerie non validee)"
           },
@@ -49,7 +49,7 @@
           "request": {
             "method": "POST",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": { "mode": "raw", "raw": "{\n  \"email\": \"gallery2.{{$timestamp}}@consignart-demo.fr\",\n  \"password\": \"Kam3lMennour!\",\n  \"firstName\": \"Kamel\",\n  \"lastName\": \"Mennour\",\n  \"role\": \"gallery\"\n}" },
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"daniella.boaba@consignart.fr\",\n  \"password\": \"Boaba2026!\",\n  \"firstName\": \"Daniella\",\n  \"lastName\": \"Boaba\",\n  \"role\": \"gallery\"\n}" },
             "url": { "raw": "{{baseUrl}}/auth/register", "host": ["{{baseUrl}}"], "path": ["auth", "register"] }
           },
           "event": [{ "listen": "test", "script": { "exec": [
@@ -63,7 +63,7 @@
           "request": {
             "method": "POST",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": { "mode": "raw", "raw": "{\n  \"email\": \"artist.{{$timestamp}}@consignart-demo.fr\",\n  \"password\": \"SophieC4lle!\",\n  \"firstName\": \"Sophie\",\n  \"lastName\": \"Calle\",\n  \"role\": \"artist\"\n}" },
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"sophie.girard@consignart.fr\",\n  \"password\": \"Girard2026!\",\n  \"firstName\": \"Sophie\",\n  \"lastName\": \"Girard\",\n  \"role\": \"artist\"\n}" },
             "url": { "raw": "{{baseUrl}}/auth/register", "host": ["{{baseUrl}}"], "path": ["auth", "register"] },
             "description": "Attendu: 201, isActive=true immediatement (pas de validation admin pour artist/collector)"
           },
@@ -78,7 +78,7 @@
           "request": {
             "method": "POST",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": { "mode": "raw", "raw": "{\n  \"email\": \"collector.{{$timestamp}}@consignart-demo.fr\",\n  \"password\": \"J3anDup0nt!\",\n  \"firstName\": \"Jean\",\n  \"lastName\": \"Dupont\",\n  \"role\": \"collector\"\n}" },
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"jean.laurent@consignart.fr\",\n  \"password\": \"Laurent2026!\",\n  \"firstName\": \"Jean\",\n  \"lastName\": \"Laurent\",\n  \"role\": \"collector\"\n}" },
             "url": { "raw": "{{baseUrl}}/auth/register", "host": ["{{baseUrl}}"], "path": ["auth", "register"] }
           },
           "event": [{ "listen": "test", "script": { "exec": [
@@ -92,7 +92,7 @@
           "request": {
             "method": "POST",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": { "mode": "raw", "raw": "{\n  \"email\": \"hacker@test.fr\",\n  \"password\": \"Test1234!\",\n  \"firstName\": \"X\",\n  \"lastName\": \"Y\",\n  \"role\": \"admin\"\n}" },
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"hacker@test.fr\",\n  \"password\": \"Hacker2026\",\n  \"firstName\": \"X\",\n  \"lastName\": \"Y\",\n  \"role\": \"admin\"\n}" },
             "url": { "raw": "{{baseUrl}}/auth/register", "host": ["{{baseUrl}}"], "path": ["auth", "register"] },
             "description": "Attendu: 400/403 — un admin ne peut pas s'auto-enregistrer"
           }
@@ -139,7 +139,7 @@
           "request": {
             "method": "POST",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": { "mode": "raw", "raw": "{\n  \"email\": \"{{galleryEmail}}\",\n  \"password\": \"GalerieP3rrotin!\"\n}" },
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"{{galleryEmail}}\",\n  \"password\": \"Reanault2026!\"\n}" },
             "url": { "raw": "{{baseUrl}}/auth/login", "host": ["{{baseUrl}}"], "path": ["auth", "login"] }
           },
           "event": [{ "listen": "test", "script": { "exec": [
@@ -152,7 +152,7 @@
           "request": {
             "method": "POST",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": { "mode": "raw", "raw": "{\n  \"email\": \"{{gallery2Email}}\",\n  \"password\": \"Kam3lMennour!\"\n}" },
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"{{gallery2Email}}\",\n  \"password\": \"Boaba2026!\"\n}" },
             "url": { "raw": "{{baseUrl}}/auth/login", "host": ["{{baseUrl}}"], "path": ["auth", "login"] }
           },
           "event": [{ "listen": "test", "script": { "exec": [
@@ -165,7 +165,7 @@
           "request": {
             "method": "POST",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": { "mode": "raw", "raw": "{\n  \"email\": \"{{collectorEmail}}\",\n  \"password\": \"J3anDup0nt!\"\n}" },
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"{{collectorEmail}}\",\n  \"password\": \"Laurent2026!\"\n}" },
             "url": { "raw": "{{baseUrl}}/auth/login", "host": ["{{baseUrl}}"], "path": ["auth", "login"] }
           },
           "event": [{ "listen": "test", "script": { "exec": [
@@ -184,7 +184,7 @@
           "request": {
             "method": "POST",
             "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{galleryToken}}" }],
-            "body": { "mode": "raw", "raw": "{\n  \"firstName\": \"Sophie\",\n  \"lastName\": \"Calle\",\n  \"bio\": \"Artiste plasticienne francaise, figure majeure de l'art conceptuel.\",\n  \"nationality\": \"French\",\n  \"birthYear\": 1953,\n  \"specialty\": \"Photography\",\n  \"websiteUrl\": \"https://sophiecalle.net\",\n  \"userId\": \"{{artistUserId}}\"\n}" },
+            "body": { "mode": "raw", "raw": "{\n  \"firstName\": \"Sophie\",\n  \"lastName\": \"Girard\",\n  \"bio\": \"Artiste plasticienne francaise, figure majeure de l'art conceptuel.\",\n  \"nationality\": \"French\",\n  \"birthYear\": 1953,\n  \"specialty\": \"Photography\",\n  \"websiteUrl\": \"https://sophiegirard.net\",\n  \"userId\": \"{{artistUserId}}\"\n}" },
             "url": { "raw": "{{baseUrl}}/artists", "host": ["{{baseUrl}}"], "path": ["artists"] }
           },
           "event": [{ "listen": "test", "script": { "exec": [

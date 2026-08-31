@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Script de démo ConsignArt — rejouable à volonté (emails uniques via timestamp).
+# Script de démo ConsignArt — emails fixes (si un email existe déjà d'un run
+# précédent, modifie-le ci-dessous avant de relancer).
 # Prérequis : docker compose up --build -d ; npm run seed:admin (depuis l'hôte)
 #
 # Usage : bash docs/demo/demo-script.sh
@@ -9,7 +10,6 @@
 
 set -uo pipefail
 BASE="http://localhost:3000/api/v1"
-STAMP=$(date +%s)
 ADMIN_EMAIL="${ADMIN_EMAIL:-}"
 ADMIN_PASSWORD="${ADMIN_PASSWORD:-}"
 
@@ -34,39 +34,39 @@ section "1. Inscription des comptes (gallery / artist / collector)"
 # ---------------------------------------------------------------------------
 say "Une galerie qui s'inscrit doit rester inactive jusqu'a validation admin"
 GALLERY_REG=$(curl -s -X POST "$BASE/auth/register" -H "Content-Type: application/json" -d "{
-  \"email\": \"gallery.$STAMP@consignart-demo.fr\",
-  \"password\": \"GalerieP3rrotin!\",
-  \"firstName\": \"Emmanuel\", \"lastName\": \"Perrotin\", \"role\": \"gallery\"
+  \"email\": \"emanuel.reanault@consignart.fr\",
+  \"password\": \"Reanault2026!\",
+  \"firstName\": \"Emanuel\", \"lastName\": \"Reanault\", \"role\": \"gallery\"
 }")
 echo "$GALLERY_REG"
 GALLERY_ID=$(field "$GALLERY_REG" id)
 
 GALLERY2_REG=$(curl -s -X POST "$BASE/auth/register" -H "Content-Type: application/json" -d "{
-  \"email\": \"gallery2.$STAMP@consignart-demo.fr\",
-  \"password\": \"Kam3lMennour!\",
-  \"firstName\": \"Kamel\", \"lastName\": \"Mennour\", \"role\": \"gallery\"
+  \"email\": \"daniella.boaba@consignart.fr\",
+  \"password\": \"Boaba2026!\",
+  \"firstName\": \"Daniella\", \"lastName\": \"Boaba\", \"role\": \"gallery\"
 }")
 GALLERY2_ID=$(field "$GALLERY2_REG" id)
 
 ARTIST_REG=$(curl -s -X POST "$BASE/auth/register" -H "Content-Type: application/json" -d "{
-  \"email\": \"artist.$STAMP@consignart-demo.fr\",
-  \"password\": \"SophieC4lle!\",
-  \"firstName\": \"Sophie\", \"lastName\": \"Calle\", \"role\": \"artist\"
+  \"email\": \"sophie.girard@consignart.fr\",
+  \"password\": \"Girard2026!\",
+  \"firstName\": \"Sophie\", \"lastName\": \"Girard\", \"role\": \"artist\"
 }")
 echo "$ARTIST_REG"
 ARTIST_USER_ID=$(field "$ARTIST_REG" id)
 
 COLLECTOR_REG=$(curl -s -X POST "$BASE/auth/register" -H "Content-Type: application/json" -d "{
-  \"email\": \"collector.$STAMP@consignart-demo.fr\",
-  \"password\": \"J3anDup0nt!\",
-  \"firstName\": \"Jean\", \"lastName\": \"Dupont\", \"role\": \"collector\"
+  \"email\": \"jean.laurent@consignart.fr\",
+  \"password\": \"Laurent2026!\",
+  \"firstName\": \"Jean\", \"lastName\": \"Laurent\", \"role\": \"collector\"
 }")
 echo "$COLLECTOR_REG"
 COLLECTOR_ID=$(field "$COLLECTOR_REG" id)
 
-say "Un admin ne peut pas s'auto-enregistrer -> attendu 403"
+say "Un admin ne peut pas s'auto-enregistrer -> attendu 400 (role rejete par le DTO avant meme le service)"
 curl -s -w " [HTTP %{http_code}]\n" -X POST "$BASE/auth/register" -H "Content-Type: application/json" -d '{
-  "email": "hacker@test.fr", "password": "Test1234!", "firstName": "X", "lastName": "Y", "role": "admin"
+  "email": "hacker@test.fr", "password": "Hacker2026", "firstName": "X", "lastName": "Y", "role": "admin"
 }'
 
 # ---------------------------------------------------------------------------
@@ -88,9 +88,9 @@ curl -s -X PATCH "$BASE/users/$GALLERY2_ID/activate" -H "Authorization: Bearer $
 echo "Galeries activées."
 
 say "Login galerie 1 et galerie 2"
-GALLERY_TOKEN=$(field "$(curl -s -X POST "$BASE/auth/login" -H "Content-Type: application/json" -d "{\"email\":\"gallery.$STAMP@consignart-demo.fr\",\"password\":\"GalerieP3rrotin!\"}")" access_token)
-GALLERY2_TOKEN=$(field "$(curl -s -X POST "$BASE/auth/login" -H "Content-Type: application/json" -d "{\"email\":\"gallery2.$STAMP@consignart-demo.fr\",\"password\":\"Kam3lMennour!\"}")" access_token)
-COLLECTOR_LOGIN=$(curl -s -X POST "$BASE/auth/login" -H "Content-Type: application/json" -d "{\"email\":\"collector.$STAMP@consignart-demo.fr\",\"password\":\"J3anDup0nt!\"}")
+GALLERY_TOKEN=$(field "$(curl -s -X POST "$BASE/auth/login" -H "Content-Type: application/json" -d "{\"email\":\"emanuel.reanault@consignart.fr\",\"password\":\"Reanault2026!\"}")" access_token)
+GALLERY2_TOKEN=$(field "$(curl -s -X POST "$BASE/auth/login" -H "Content-Type: application/json" -d "{\"email\":\"daniella.boaba@consignart.fr\",\"password\":\"Boaba2026!\"}")" access_token)
+COLLECTOR_LOGIN=$(curl -s -X POST "$BASE/auth/login" -H "Content-Type: application/json" -d "{\"email\":\"jean.laurent@consignart.fr\",\"password\":\"Laurent2026!\"}")
 COLLECTOR_TOKEN=$(field "$COLLECTOR_LOGIN" access_token)
 COLLECTOR_REFRESH=$(echo "$COLLECTOR_LOGIN" | grep -o '"refresh_token":"[^"]*"' | cut -d'"' -f4)
 
@@ -98,10 +98,10 @@ COLLECTOR_REFRESH=$(echo "$COLLECTOR_LOGIN" | grep -o '"refresh_token":"[^"]*"' 
 section "3. Artiste + oeuvres (pipes metier)"
 # ---------------------------------------------------------------------------
 ARTIST=$(curl -s -X POST "$BASE/artists" -H "Content-Type: application/json" -H "Authorization: Bearer $GALLERY_TOKEN" -d "{
-  \"firstName\": \"Sophie\", \"lastName\": \"Calle\",
+  \"firstName\": \"Sophie\", \"lastName\": \"Girard\",
   \"bio\": \"Artiste plasticienne francaise, figure majeure de l'art conceptuel.\",
   \"nationality\": \"French\", \"birthYear\": 1953,
-  \"specialty\": \"Photography\", \"websiteUrl\": \"https://sophiecalle.net\",
+  \"specialty\": \"Photography\", \"websiteUrl\": \"https://sophiegirard.net\",
   \"userId\": \"$ARTIST_USER_ID\"
 }")
 echo "$ARTIST"
@@ -144,7 +144,7 @@ curl -s -w " [HTTP %{http_code}]\n" -X POST "$BASE/exhibitions" -H "Content-Type
 }'
 
 EXHIBITION=$(curl -s -X POST "$BASE/exhibitions" -H "Content-Type: application/json" -H "Authorization: Bearer $GALLERY_TOKEN" -d "{
-  \"title\": \"Nuit Blanche $STAMP\", \"location\": \"Galerie Perrotin, Paris\",
+  \"title\": \"Nuit Blanche 2026\", \"location\": \"Galerie Perrotin, Paris\",
   \"startDate\": \"2026-09-01\", \"endDate\": \"2026-09-30\", \"artworkIds\": [\"$ARTWORK2_ID\"]
 }")
 EXHIBITION_ID=$(field "$EXHIBITION" id)
